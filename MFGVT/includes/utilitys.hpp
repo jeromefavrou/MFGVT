@@ -30,7 +30,8 @@ namespace utilitys
     static void cpyToPP(const std::string _cpy)
     {
         // Ouvrir le presse-papiers
-        if (OpenClipboard(NULL)) {
+        if (OpenClipboard(NULL)) 
+        {
             // Vider le presse-papiers
             EmptyClipboard();
 
@@ -57,7 +58,7 @@ namespace utilitys
         } 
     }
 
-    /// @brief retourn la métadonné date de creation d'un fichier !!! le rettour n'est pas garentie
+    /// @brief retourn la métadonné date de creation d'un fichier !!! le retour n'est pas garentie
     /// @param _file fichier source
     /// @return  retour la date si ok sinon retourn une chaine vide
     static std::string get_createDate(std::string const & _file)
@@ -66,7 +67,7 @@ namespace utilitys
         HANDLE hFile = CreateFile(_file.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 
         if (hFile == INVALID_HANDLE_VALUE) 
-            return "";
+            throw std::ios_base::failure("create date of " + _file + "cannot be read");
         
 
         // Obtenir les informations sur le fichier, y compris la date de création
@@ -93,6 +94,7 @@ namespace utilitys
         // Fermer le handle du fichier
         CloseHandle(hFile);
 
+        throw std::ios_base::failure("create date of " + _file + "cannot be read");
         return "";
     }
 
@@ -173,8 +175,12 @@ namespace utilitys
     /// @return retourn un tuple de str des 2 morceau de chaine séparé
     template<char _c> std::tuple<std::string , std::string> sep_string(std::string const & _str , bool _reverse = false)
     {
-        int idx = 0;
+        unsigned int idx = 0;
 
+        if(_str.size() == 0)
+            return {"",""};
+
+        //recherche de la gauche vers la droite
         if(!_reverse)
         {
            for(size_t i = 0 ; i<_str.size() ; i++)
@@ -190,9 +196,10 @@ namespace utilitys
                 return {_str , ""};
 
         }
+        //recherche de la droite vers la gacuhe
         else
         {
-            for(size_t i = _str.size()-1 ; i>=0 ; i--)
+            for(unsigned int i = _str.size()-1 ; i>0 ; i--)
             {
                 if(_str[i] == _c )
                 {
@@ -221,15 +228,13 @@ namespace utilitys
         {
             for (const auto& entry : std::filesystem::directory_iterator(chemin))
             {
+                // Appel récursif pour traiter les sous-répertoires
                 if (std::filesystem::is_directory(entry.status()))
-                {
-                    // Appel récursif pour traiter les sous-répertoires
                     listerFichiers(entry.path(), fichiers);
-                } else if (std::filesystem::is_regular_file(entry.status()))
-                {
-                    // Ajouter le fichier au vecteur
+                // Ajouter le fichier au vecteur
+                else if (std::filesystem::is_regular_file(entry.status()))
                     fichiers.push_back(chemin.string() + "\\"+ entry.path().filename().string());
-                }
+                
             }
         }
         catch (const std::exception& e)
@@ -314,7 +319,7 @@ namespace utilitys
         return res;
     }
 
-    /// @brief recherche la match principal d'un regex 
+    /// @brief recherche le match principal d'un regex 
     /// @param _reg  regex a utilisé
     /// @param _str chaine a traité avec le regex
     /// @return retourn le regex principal
@@ -345,11 +350,14 @@ namespace utilitys
         std::ifstream f(file1 , std::ios::binary);
         if(f)
             CryptoPP::FileSource(f, true, new CryptoPP::HashFilter(hash, new CryptoPP::StringSink(checksum1)));
+        else
+            throw std::ios_base::failure(file1 + " cannot be opened");
     
         std::ifstream f2(file2 , std::ios::binary);
         if(f2)
             CryptoPP::FileSource(f2, true, new CryptoPP::HashFilter(hash2, new CryptoPP::StringSink(checksum2)));
-
+        else
+            throw std::ios_base::failure(file2 + " cannot be opened");
         
         f.close();
         f2.close();
@@ -367,7 +375,7 @@ namespace utilitys
         std::ifstream stream2(file2, std::ios::binary | std::ios::ate);
 
         if (!stream1 || !stream2)
-            return false;
+            throw std::ios_base::failure(file1 + " or/and " + file2 + " cannot be opened");
         
         unsigned long int s1 = stream1.tellg();
         unsigned long int s2 = stream2.tellg();
@@ -378,11 +386,50 @@ namespace utilitys
         return s1 == s2;
     }
 
-
+    /// @brief ouvre une page web
+    /// @param url 
     static void openWebPage(const std::string& url) 
     {
         ShellExecute(NULL, "open", url.c_str(), NULL, NULL, SW_SHOWNORMAL);
     }
+
+
+    class MainPathSharedTemplate
+    {
+        public:
+            MainPathSharedTemplate(void);
+            virtual ~MainPathSharedTemplate(void);
+
+            void addMainPath(std::shared_ptr<const std::string> _mainPath);
+            std::shared_ptr<const std::string> const getMainPath(void);
+            std::shared_ptr<const std::string> const atMainPath(void);
+
+        private:
+
+        std::shared_ptr<const std::string> m_mainPath;
+    };
+
+    MainPathSharedTemplate::MainPathSharedTemplate(void){}
+    MainPathSharedTemplate::~MainPathSharedTemplate(void){}
+    //setter
+    void MainPathSharedTemplate::addMainPath(std::shared_ptr<const std::string> _mainPath)
+    {
+        this->m_mainPath  = _mainPath;
+    }
+    //getter
+    std::shared_ptr<const std::string> const MainPathSharedTemplate::getMainPath(void)
+    {
+        return this->m_mainPath;
+    }
+    //acces securisé 
+    std::shared_ptr<const std::string> const MainPathSharedTemplate::atMainPath(void)
+    {
+        if(!this->m_mainPath)
+            throw std::logic_error("bad mainPath acces");
+
+        return this->m_mainPath;
+    }
+
 };
 
 
