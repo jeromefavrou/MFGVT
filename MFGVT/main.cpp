@@ -55,7 +55,7 @@ void WindowMain::init(void)
 
     this->unfullscreen();
 	this->set_position(Gtk::WIN_POS_CENTER);
-	this->resize(640, 480);
+	this->resize(1200, 480);
     this->maximize();
 
     this->addCssProvider( Gtk::CssProvider::create() );
@@ -81,7 +81,7 @@ void WindowMain::init(void)
     this->add(this->m_utilitysPanel);
 
 
-    this->m_utilitysPanel.pack1( this->m_usersPanel );
+    this->m_utilitysPanel.pack1( this->m_usersPanel , Gtk::SHRINK );
     
 
     this->m_pdfS = std::shared_ptr<PdfShower>( new PdfShower() );
@@ -89,7 +89,7 @@ void WindowMain::init(void)
     this->m_prompt.addPdfShower( this->m_pdfS );
 
 
-    this->m_utilitysPanel.pack2( *this->m_pdfS );
+    this->m_utilitysPanel.pack2( *this->m_pdfS , Gtk::FILL  );
 
     this->m_usersPanel.pack_start(this->m_prompt  , Gtk::PACK_SHRINK);
 
@@ -134,7 +134,7 @@ int main(int argc, char *argv[])
 	    fenetre.set_title("Maintenance File Grouper Version Tool");
 
         //! charge les donné , doit etre fait avant WindowMain::init()
-        auto tload = load( fenetre.get_ressourcePath() );
+        auto tload = Device::load( fenetre.get_ressourcePath() );
         fenetre.addMainPath( std::shared_ptr< const std::string >(new const std::string(std::get<0>(tload))) );
 
         fenetre.addDevice( std::get<1>(tload) );
