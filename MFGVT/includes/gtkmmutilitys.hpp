@@ -88,7 +88,7 @@ class DialogThread : public Gtk::Dialog
 
       bool thread_func(void);
 
-       std::thread m_th;
+       std::jthread m_th;
        std::atomic<bool> m_continue , m_end ;
        Glib::Dispatcher m_signalDone;
       
@@ -120,7 +120,7 @@ void DialogThread::run(void)
 
     this->m_end = false;
     this->m_continue = true;
-    this->m_th =  std::thread(&DialogThread::thread_func, this);
+    this->m_th =  std::jthread(&DialogThread::thread_func, this);
 }
 
 /// @brief arret du thread
@@ -158,5 +158,6 @@ bool DialogThread::thread_func(void)
     this->m_end = true;
     return true;
 }
+
 
 #endif

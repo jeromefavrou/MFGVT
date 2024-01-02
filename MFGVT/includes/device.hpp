@@ -8,6 +8,7 @@
 #include <future>
 #include <mutex>
 
+
 /// @brief class ui definit un materiel contenant des conteneur
 class Device  : public utilitys::MainPathSharedTemplate
 {
@@ -18,12 +19,16 @@ class Device  : public utilitys::MainPathSharedTemplate
         Device & operator=(const Device & _lref);
         Device & operator=(const Device && _rref);
 
-        std::vector<Container> & get_containers(void);
+        std::vector<VContainer> & get_containers(void);
         const std::string get_name(void)const;
         void update(   std::vector<std::string> & _files,bool _forceUpdate = false , unsigned int _n_thread = 0);
+
+        typedef std::shared_ptr< std::vector<Device> > ptrVecDevice;
+
+        static std::tuple<std::string, ptrVecDevice > load(const std::string & _ressourcePath);
     protected:
 
-        std::vector<Container> m_containers;
+        std::vector<VContainer> m_containers;
         std::string m_name;
 
         bool m_update;
@@ -33,6 +38,7 @@ class Device  : public utilitys::MainPathSharedTemplate
         std::mutex m_mutex;
 
         void findDevice_th( const std::vector<std::string>::iterator & _beg , const std::vector<std::string>::iterator & _end,  std::vector<std::string> & _out );
+        void container_init_th(  const std::vector<VContainer>::iterator & _beg , const std::vector<VContainer>::iterator & _end , const std::vector<std::string> & pathDevice );
 };
 
 typedef std::shared_ptr<std::vector<Device>> ptrVecDevice;
@@ -83,7 +89,7 @@ Device::Device( const Device && _rref)
 
 /// @brief retourn le conteneur
 /// @return std::vector<Container>
-std::vector<Container> & Device::get_containers(void)
+std::vector<VContainer> & Device::get_containers(void)
 {
     return this->m_containers;
 }
@@ -138,64 +144,19 @@ void Device::findDevice_th( const std::vector<std::string>::iterator & _beg , co
     }
 }
 
-/// @brief met a jour les conteneur en scanant une racine pour y trouver le materiel et les conteneur
-/// @param _mainPath racine a scanné
-/// @param _files  tout les chemin fichier compatible
-/// @param _forceUpdate force la mise a jour si deja scanné
-void Device::update(  std::vector<std::string> & _files , bool _forceUpdate ,unsigned int _n_thread)
+
+void Device::container_init_th(  const std::vector< VContainer >::iterator & _beg , const std::vector< VContainer >::iterator & _end , const std::vector<std::string> & pathDevice)
 {
-
-    if( this->m_update && !_forceUpdate)
-        return ;
-        
-        
-    std::vector<std::string>  pathDevice ;
-
-    if(_n_thread < 2 || _files.size() < 2)
-        this->findDevice_th( _files.begin() , _files.end() , pathDevice);
-    else
+    for(auto  c = _beg ; c != _end ; c++)
     {
-        std::vector< std::thread > tmp_th;
-
-        int divider = _files.size() / _n_thread;
-
-        if( divider == 0)
-        {
-            this->findDevice_th( _files.begin() , _files.end() , pathDevice);
-        }
-        else
-        {
-            for( unsigned int i = 0 ; i < _n_thread ; i++)
-            {
-                if( i == _n_thread-1)
-                {
-                    tmp_th.emplace_back( &Device::findDevice_th, this, _files.begin() + divider * i , _files.end() , std::ref(pathDevice) );
-                }
-                else
-                {
-                    tmp_th.emplace_back( &Device::findDevice_th, this, _files.begin() + divider * i , _files.begin() + divider * (i+1)  ,std::ref(pathDevice) );
-                }
-            }
-
-            for( auto & th : tmp_th)
-                th.join();
-            }
-    }
-
-
-
-    //recherche les differant contenaire
-    
-    for(auto & c : m_containers)
-    {
-        c.clear();
+        c->clear();
 
         for(const auto &  pd : pathDevice)
         {
             std::string tmpStr = pd;
 
             utilitys::upper(tmpStr);
-            auto found = tmpStr.find( c.get_name() );
+            auto found = tmpStr.find( c->get_name() );
 
             if( found!=std::string::npos)
             {
@@ -204,7 +165,7 @@ void Device::update(  std::vector<std::string> & _files , bool _forceUpdate ,uns
                 auto nameExt = utilitys::sep_name_and_ext(std::get<1>(pathName));
                 
                 //ajoute si l'extension est supporté
-                if( c.get_authExt().find( std::get<1>(nameExt) ) != std::string::npos )
+                if( c->get_authExt().find( std::get<1>(nameExt) ) != std::string::npos )
                 {
                     Version tmp ;
 
@@ -212,14 +173,14 @@ void Device::update(  std::vector<std::string> & _files , bool _forceUpdate ,uns
                     tmp.dir = std::get<0>(pathName);
                     
                     tmp.name = std::get<0>(nameExt);
-                    tmp.id = utilitys::regSearch(c.get_reg_id() , tmp.name);
+                    tmp.id = utilitys::regSearch( c->get_reg_id() , tmp.name);
                     
                     if(tmp.id.size() == 0)
                         tmp.id = tmp.name;
 
-                    tmp.autor =  std::move(utilitys::regSearch(c.get_reg_autor() , tmp.name));
-                    tmp.part =  std::move(utilitys::regSearch(c.get_reg_part() , tmp.name));
-                    tmp.version =  std::move(utilitys::regSearch(c.get_reg_version() , tmp.name));
+                    tmp.autor =  std::move(utilitys::regSearch( c->get_reg_autor() , tmp.name));
+                    tmp.part =  std::move(utilitys::regSearch( c->get_reg_part() , tmp.name));
+                    tmp.version =  std::move(utilitys::regSearch( c->get_reg_version() , tmp.name));
 
                     
                     tmp.extension = std::get<1>(nameExt);
@@ -249,28 +210,45 @@ void Device::update(  std::vector<std::string> & _files , bool _forceUpdate ,uns
                         std::cerr << e.what() << std::endl;
                     }
 
-                    c.add2GrpVersion( std::move(tmp) );
+                    c->add2GrpVersion( std::move(tmp) );
+
                 }
-                
             }
         } 
 
     }
-    pathDevice.clear();
-    pathDevice.shrink_to_fit();
-    
-    this->m_update  =true;
 }
 
-static std::tuple<std::string,ptrVecDevice> load(const std::string & _ressourcePath)
+/// @brief met a jour les conteneur en scanant une racine pour y trouver le materiel et les conteneur
+/// @param _mainPath racine a scanné
+/// @param _files  tout les chemin fichier compatible
+/// @param _forceUpdate force la mise a jour si deja scanné
+void Device::update(  std::vector<std::string> & _files , bool _forceUpdate ,unsigned int _n_thread)
 {
-    std::clog << "load configuration ...   " << std::endl;
-    const auto start{std::chrono::steady_clock::now()};
 
+    if( this->m_update && !_forceUpdate)
+        return ;
+        
+    std::vector<std::string>  pathDevice ;
+
+    utilitys::multi_thread_callback( std::bind(&Device::findDevice_th, this, std::placeholders::_1 , std::placeholders::_2 , std::ref(pathDevice)) , _files , _n_thread );
+
+    utilitys::multi_thread_callback( std::bind(&Device::container_init_th, this, std::placeholders::_1 , std::placeholders::_2 , std::ref(pathDevice)) , this->m_containers , _n_thread );
+
+    this->m_update  = true;
+}
+
+
+/// @brief charge la repertoir de travail et un poiteur de la liste des materiel
+/// @param _ressourcePath repertoir des resosurces
+/// @return tuple<str , ptrVecDevice>
+std::tuple<std::string,ptrVecDevice> Device::load(const std::string & _ressourcePath)
+{
+    const auto start{std::chrono::steady_clock::now()};
     ptrVecDevice devices;
 
 
-    //charge les ficheir de maniere asynchrone // utlise 3 thread
+    //charge les fichier de maniere asynchrone // utlise 3 thread
     std::future< std::vector<std::string> > deviceTh = std::async ( utilitys::readList, _ressourcePath + "\\devicesList.csv" , true);
     std::future< std::vector<std::string> > contTh = std::async ( utilitys::readList, _ressourcePath + "\\containerList.csv" , true);
     std::future< std::vector<std::string> > parameterTh = std::async (utilitys::readList, _ressourcePath + "\\parameters.csv" , false);
@@ -290,8 +268,7 @@ static std::tuple<std::string,ptrVecDevice> load(const std::string & _ressourceP
         throw std::logic_error("no parametres found");
 
 
-    std::string && mainPath =  utilitys::getParamValue("MAIN_PATH" , lsParameter , true);
-
+    std::string && mainPath =  utilitys::getParamValue("WORK_DIR" , lsParameter , true);
 
     if(mainPath.size() == 0)
         throw std::logic_error("no mainPath  found");
@@ -303,7 +280,7 @@ static std::tuple<std::string,ptrVecDevice> load(const std::string & _ressourceP
     devices = ptrVecDevice(new std::vector<Device>());
 
     //contruis une liste de contenaire patron pour ne pas repeter getParamValue
-    std::vector<Container> tmpCont;
+    std::vector<VContainer> tmpCont;
     for(const auto & cnt : lsContainer)
     {
         tmpCont.emplace_back( cnt );
@@ -347,8 +324,6 @@ static std::tuple<std::string,ptrVecDevice> load(const std::string & _ressourceP
 
     const auto end{std::chrono::steady_clock::now()};
     const std::chrono::duration<double> elapsed_seconds{end - start};
-
-    std::clog <<"succes load in : " << elapsed_seconds.count() * 1000 << " ms" <<std::endl;
 
     return {mainPath , devices};
 }

@@ -12,6 +12,8 @@
 #include <poppler/cpp/poppler-page-renderer.h>
 
 class PdfShower ;
+
+/// @brief objet patron de partage par poiteur de donné essentiel
 class TemplateGui : public utilitys::MainPathSharedTemplate
 {
    public:
@@ -32,7 +34,6 @@ class TemplateGui : public utilitys::MainPathSharedTemplate
       void addPdfShower( const std::shared_ptr< PdfShower > & _pdfS);
       const std::shared_ptr< PdfShower > &  atPdfShower( void) const;
       std::shared_ptr< PdfShower > &  getPdfShower( void) ;
-
 
       virtual ~TemplateGui(void);
       
@@ -138,6 +139,7 @@ std::shared_ptr< PdfShower > &  TemplateGui::getPdfShower( void)
 }
 
 
+/// @brief objet de rendu d'un fichier pdf
 class PdfShower : public TemplateGui , public Gtk::ScrolledWindow
 {
     public:
@@ -154,49 +156,64 @@ class PdfShower : public TemplateGui , public Gtk::ScrolledWindow
 
 };
 
-PdfShower::PdfShower(void ):TemplateGui(),Gtk::ScrolledWindow( )
+/// @brief initialisation de la fenetre de rendu
+PdfShower::PdfShower(void ):TemplateGui(),Gtk::ScrolledWindow()
 {
+    this->set_policy(Gtk::POLICY_NEVER, Gtk::POLICY_AUTOMATIC);
+    this->add(this->m_bx);
 }
 
+/// @brief lecture et affichage d'un pdf
+/// @param _file chemin du ficheir pdf
 void PdfShower::read_pdf( const std::string & _file )
 {
+    //lecture du pdf
     poppler::document *pdf_document = poppler::document::load_from_file( _file );
+    
+    // nettoyage de l'objet en cours
+    this->clear();
 
+
+    //verification de la validité du poiteur
     if( !pdf_document )
         throw std::ios_base::failure( _file + " cannot be opened");
 
-    this->clear();
 
+    //lecture des différente page 
     for(auto i = 0 ; i < pdf_document->pages() ; i++)
     {
         poppler::page * pdf_page = pdf_document->create_page(i);
 
         if(!pdf_page)
-        {
            throw std::ios_base::failure( _file + " cannot be read page");
-        }
+        
 
         this->m_vec_pdfImage.push_back(poppler::page_renderer().render_page(pdf_page));
 
+        //transformation des donné brut en donné explatable gtkmm
         Glib::RefPtr<Gdk::Pixbuf> pixbuf = Gdk::Pixbuf::create_from_data( (guint8*)this->m_vec_pdfImage.back().data(), Gdk::COLORSPACE_RGB, true, 8, this->m_vec_pdfImage.back().width(), this->m_vec_pdfImage.back().height(), this->m_vec_pdfImage.back().bytes_per_row() );
 
+        //mis en memoir de la page pdf sous formt d'image
         this->m_vec_images.emplace_back(pixbuf);
         this->m_vec_images.back().show();
         
-
         this->m_bx.pack_start( this->m_vec_images.back() );
 
     }
-    this->add(this->m_bx);
     
 }
+
+/// @brief netoyyage de l'objet en cour
 void PdfShower::clear(void)
 {
-    utilitys::gtkmmRemoveChilds( *this );
+    utilitys::gtkmmRemoveChilds( this->m_bx );
     this->m_vec_images.clear();
     this->m_vec_pdfImage.clear();
 }
 
+
+
+/// @brief objet de rendu des groope de verion
 class VersionShower :  public TemplateGui , public Gtk::VBox , public std::vector<GrpVersion>
 {
     public:
@@ -210,9 +227,9 @@ class VersionShower :  public TemplateGui , public Gtk::VBox , public std::vecto
        void update_complet_path(void);
        void clipBoardCpy(void);
 
-       Gtk::VBox id  , createDate , m_grpInfoPath , m_grpInfoError;
+       Gtk::VBox id  , nb_occur , m_grpInfoPath , m_grpInfoError;
        GrpVersion m_current_sel;
-       Gtk::Button m_groupeInfo , m_cpyPath;
+       Gtk::Button  m_cpyPath;
        Gtk::Label m_createDate , m_modifDate , m_autor;
 
        Gtk::ComboBoxText m_device_sel , m_version_sel, m_ext_sel ,m_part_sel;
@@ -223,24 +240,33 @@ class VersionShower :  public TemplateGui , public Gtk::VBox , public std::vecto
        bool m_onclickLock;
 };
 
+
+/// @brief initilisation de la fenetre de rendu
+/// @param  
 VersionShower::VersionShower(void):TemplateGui(),Gtk::VBox()
 {
     this->m_onclickLock = false;
     const int colSize = 2;
     Gtk::Frame *tmp[colSize] ;
+
+    //patie supperieur
     Gtk::Table *tab2 = Gtk::manage(new Gtk::Table( 2  , colSize ));  
     
     tab2->attach(*Gtk::manage(new Gtk::Label("id")), 0, 1, 0, 1 ,Gtk::SHRINK , Gtk::SHRINK); 
-    tab2->attach(*Gtk::manage(new Gtk::Label("Date de création")), 1,2, 0, 1 , Gtk::SHRINK, Gtk::SHRINK);
+    tab2->attach(*Gtk::manage(new Gtk::Label("nb")), 1,2, 0, 1 , Gtk::SHRINK, Gtk::SHRINK);
 
     for(auto i =0 ; i < colSize ; i++)
     {
         tmp[i] =  Gtk::manage(new Gtk::Frame());
-        tab2->attach(*tmp[i], i, i+1, 1, 2 ); 
+
+        if(i == 0)
+            tab2->attach(*tmp[i], i, i+1, 1, 2 );
+        else
+            tab2->attach(*tmp[i], i, i+1, 1, 2 ,Gtk::SHRINK);
     }
 
     tmp[0]->add( this->id );
-    tmp[1]->add( this->createDate);
+    tmp[1]->add( this->nb_occur);
     
         
     Gtk::ScrolledWindow *sw =Gtk::manage(new Gtk::ScrolledWindow());
@@ -248,28 +274,24 @@ VersionShower::VersionShower(void):TemplateGui(),Gtk::VBox()
 
     this->pack_start(*sw);
 
+    //barr de selection inferieur
+    Gtk::Table *tab3 = Gtk::manage(new Gtk::Table( 2  , 6 ));
+    tab3->attach( *Gtk::manage(new Gtk::Label("CompletePath")), 0, 1, 0, 1 );
+    tab3->attach( *Gtk::manage(new Gtk::Label("D")), 1, 2, 0, 1 , Gtk::SHRINK , Gtk::SHRINK);
+    tab3->attach( *Gtk::manage(new Gtk::Label("P")), 2, 3, 0, 1 , Gtk::SHRINK , Gtk::SHRINK); 
+    tab3->attach( *Gtk::manage(new Gtk::Label("V")) , 3, 4, 0, 1 , Gtk::SHRINK , Gtk::SHRINK);
+    tab3->attach( *Gtk::manage(new Gtk::Label("E")), 4, 5, 0, 1 , Gtk::SHRINK , Gtk::SHRINK);
+    tab3->attach( *Gtk::manage(new Gtk::Label("")), 5, 6, 0, 1 , Gtk::SHRINK , Gtk::SHRINK);
 
-    // parite gestion d'une selection
-    Gtk::Table *tab3 = Gtk::manage(new Gtk::Table( 2  , 7 ));
-    tab3->attach( *Gtk::manage(new Gtk::Label("")) , 0, 1, 0, 1 , Gtk::SHRINK , Gtk::SHRINK);
-    tab3->attach( *Gtk::manage(new Gtk::Label("CompletePath")), 1, 2, 0, 1 );
-    tab3->attach( *Gtk::manage(new Gtk::Label("D")), 2, 3, 0, 1 , Gtk::SHRINK , Gtk::SHRINK);
-    tab3->attach( *Gtk::manage(new Gtk::Label("P")), 3, 4, 0, 1 , Gtk::SHRINK , Gtk::SHRINK); 
-    tab3->attach( *Gtk::manage(new Gtk::Label("V")) , 4, 5, 0, 1 , Gtk::SHRINK , Gtk::SHRINK);
-    tab3->attach( *Gtk::manage(new Gtk::Label("E")), 5, 6, 0, 1 , Gtk::SHRINK , Gtk::SHRINK);
-    tab3->attach( *Gtk::manage(new Gtk::Label("")), 6, 7, 0, 1 , Gtk::SHRINK , Gtk::SHRINK);
-
-    tab3->attach( this->m_groupeInfo , 0, 1, 1, 2 , Gtk::SHRINK , Gtk::SHRINK);
-    tab3->attach( this->m_complet_path, 1, 2, 1, 2 );
-    tab3->attach( this->m_device_sel, 2, 3, 1, 2 , Gtk::SHRINK , Gtk::SHRINK); 
-    tab3->attach( this->m_part_sel, 3, 4, 1, 2 , Gtk::SHRINK , Gtk::SHRINK); 
-    tab3->attach( this->m_version_sel , 4, 5, 1, 2 , Gtk::SHRINK , Gtk::SHRINK);
-    tab3->attach( this->m_ext_sel, 5, 6, 1, 2 , Gtk::SHRINK , Gtk::SHRINK);
-    tab3->attach( this->m_cpyPath, 6, 7, 1, 2 , Gtk::SHRINK , Gtk::SHRINK);
+    tab3->attach( this->m_complet_path, 0, 1, 1, 2 );
+    tab3->attach( this->m_device_sel, 1, 2, 1, 2 , Gtk::SHRINK , Gtk::SHRINK); 
+    tab3->attach( this->m_part_sel, 2, 3, 1, 2 , Gtk::SHRINK , Gtk::SHRINK); 
+    tab3->attach( this->m_version_sel , 3, 4, 1, 2 , Gtk::SHRINK , Gtk::SHRINK);
+    tab3->attach( this->m_ext_sel, 4, 5, 1, 2 , Gtk::SHRINK , Gtk::SHRINK);
+    tab3->attach( this->m_cpyPath, 5, 6, 1, 2 , Gtk::SHRINK , Gtk::SHRINK);
 
     this->m_complet_path.set_editable(false);
 
-    this->m_groupeInfo.signal_clicked().connect(  sigc::mem_fun(this->m_dialogInfoGrp ,&DialogThread::show_all)  );
     this->m_version_sel.signal_changed().connect(  sigc::mem_fun(*this,&VersionShower::update_complet_path)  );
     this->m_ext_sel.signal_changed().connect(  sigc::mem_fun(*this,&VersionShower::update_complet_path)  );
     this->m_part_sel.signal_changed().connect(  sigc::mem_fun(*this,&VersionShower::update_complet_path)  );
@@ -316,6 +338,9 @@ VersionShower::VersionShower(void):TemplateGui(),Gtk::VBox()
     sw2->set_vexpand(true);
     this->m_dialogInfoGrp.get_content_area()->add( *sw2 );
 }
+
+/// @brief ajoute au presse papier la selection en cours
+/// @param  
 void VersionShower::clipBoardCpy(void)
 {
     if(this->m_current_sel.size() == 0)
@@ -324,13 +349,19 @@ void VersionShower::clipBoardCpy(void)
     utilitys::cpyToPP(  this->m_complet_path.get_text() );
 
 }
+
+/// @brief met a jour les groupe a affiché
+/// @param  
 void VersionShower::update_view( void)
 {
+    //nettoys la zone pdf
     this->atPdfShower()->clear();
     
+    //nettoye tout les enfant gtkmm 
     utilitys::gtkmmRemoveChilds(this->id);
-    utilitys::gtkmmRemoveChilds(this->createDate);
+    utilitys::gtkmmRemoveChilds(this->nb_occur);
 
+    //recré les enfant gtkmm au rapport au groupe actuels
     for(GrpVersion & grp : *this)
     {
         auto bp = Gtk::manage(new Gtk::Button(  grp.get_id() , Gtk::PACK_SHRINK ));
@@ -339,16 +370,19 @@ void VersionShower::update_view( void)
         this->id.pack_start(*bp,Gtk::PACK_SHRINK);
 
 
-        auto lab2 = Gtk::manage(new Gtk::Button(grp.get_createDate() , Gtk::PACK_SHRINK ));
-
-        this->createDate.pack_start(*lab2,Gtk::PACK_SHRINK);
+        auto lab2 = Gtk::manage(new Gtk::Button( utilitys::ss_cast<size_t , std::string>( grp.size() ) , Gtk::PACK_SHRINK ));
+        lab2->signal_clicked().connect(sigc::bind<GrpVersion>(sigc::mem_fun(*this,&VersionShower::on_clic), grp));
+        lab2->signal_clicked().connect(  sigc::mem_fun(this->m_dialogInfoGrp ,&DialogThread::show_all)  );
+        this->nb_occur.pack_start(*lab2,Gtk::PACK_SHRINK);
     }
-    
 
 
     this->show_all();
 }
 
+
+/// @brief met a jour la selection suite a un clique sur un des bouton de selection
+/// @param _cpy 
 void VersionShower::on_clic(GrpVersion _cpy)
 {
     //deja un signal en cour
@@ -528,6 +562,8 @@ void VersionShower::on_clic(GrpVersion _cpy)
 
 }
 
+/// @brief met a jour la chemin complet vers le fichier selectionné , et si un pdf , l'affiche
+/// @param  
 void VersionShower::update_complet_path(void)
 {
     for(auto & vers : this->m_current_sel)
@@ -537,6 +573,7 @@ void VersionShower::update_complet_path(void)
         {   
             try
             {
+                //lit pdf et l'affiche 
                 this->atPdfShower()->read_pdf(*this->atMainPath()+"\\"+ vers.get_subPathFile());
                 this->atPdfShower()->show_all();
             }
@@ -547,6 +584,7 @@ void VersionShower::update_complet_path(void)
             }
         }
 
+        ///remlpis le chemin compelt
         if( this->m_device_sel.get_active_text() == vers.device && this->m_ext_sel.get_active_text() == vers.extension  && this->m_part_sel.get_active_text() == vers.part && this->m_version_sel.get_active_text() == vers.version)
         {
             this->m_complet_path.set_text(*this->atMainPath()+"\\"+ vers.get_subPathFile());
@@ -556,13 +594,14 @@ void VersionShower::update_complet_path(void)
         }
     }
 
+    //remet a vide le champs si rien de trouver
     this->m_complet_path.set_text("");
 }
 
 
 
 
-
+/// @brief class de gestion des bouton d'autocompletion
 class AutoCompletVisualiz :  public TemplateGui , public Gtk::ScrolledWindow
 {
     public:
@@ -582,28 +621,35 @@ class AutoCompletVisualiz :  public TemplateGui , public Gtk::ScrolledWindow
     sigc::signal<void , std::string > m_signalSelect;
 
 };
+
+/// @brief initilalize
+/// @param  
 AutoCompletVisualiz::AutoCompletVisualiz(void):TemplateGui(), Gtk::ScrolledWindow()
 {
     this->add( this->m_hbox );
 }
 
+/// @brief emmet un signal si clique
+/// @param value str a envoyer
 void AutoCompletVisualiz::signal_clicked(std::string const & value)
 {
     this->m_signalSelect.emit(value);
 }
 
+ /// @brief signal si selectionné
+ /// @return retourn le signal
  sigc::signal<void ,std::string> & AutoCompletVisualiz::signal_select(void)
  {
     return this->m_signalSelect;
  }
 
+/// @brief met a jour la liste des bouton d'autocompletion
+/// @param list 
 void AutoCompletVisualiz::update(std::vector<std::string> const & list)
 {
     for(auto it = this->m_button.begin() ; it != this->m_button.end() ; it++)
-    {
-        
         this->m_hbox.remove(*it);
-    }
+    
 
     this->m_button.clear();
 
@@ -620,6 +666,8 @@ void AutoCompletVisualiz::update(std::vector<std::string> const & list)
     this->m_hbox.show_all();
 }
 
+
+/// @brief class quui gerer le(s) prompt/commande de départ
 class Prompt  :  public TemplateGui , public Gtk::VBox
 {
     public : 
@@ -635,6 +683,9 @@ class Prompt  :  public TemplateGui , public Gtk::VBox
 
         int findDualChar(std::string const & line , const char c1 , const char c2);
 
+        void update_th( std::vector< std::string >::iterator const & _beg , std::vector< std::string >::iterator const & _end , std::vector<std::string > const & lsAtIgnor , std::vector<std::string > & files) ; 
+        void showgrp_th( std::vector< std::string >::iterator const & _beg , std::vector< std::string >::iterator const & _end , std::vector<std::string > const & lsAtIgnor ) ; 
+        void update_showgrp_th( std::vector< VContainer >::iterator const & _beg , std::vector< VContainer >::iterator const & _end);
 
         Gtk::Entry m_entry;
         AutoCompletVisualiz m_autoCompletion;
@@ -642,10 +693,14 @@ class Prompt  :  public TemplateGui , public Gtk::VBox
         Gtk::Button m_help;
 };
 
+
+/// @brief initialise la bare de prompt
+/// @param  
 Prompt::Prompt(void):TemplateGui() ,  Gtk::VBox()
 {
     auto hbox = Gtk::manage( new Gtk::HBox() );
 
+    //champt d'entrée
     this->m_entry.set_can_focus(true);
     this->m_entry.set_focus_on_click(true);
     this->m_entry.grab_focus();
@@ -656,10 +711,14 @@ Prompt::Prompt(void):TemplateGui() ,  Gtk::VBox()
     this->m_entry.signal_activate().connect(sigc::mem_fun(*this, &Prompt::enterSignal));
     this->m_entry.signal_changed().connect( sigc::mem_fun( *this , &Prompt::completionList ));
 
+    //barre de bp d'auto completion
     this->m_autoCompletion.signal_select().connect( sigc::mem_fun( *this , &Prompt::completion ));
 
+    //bouton d'aide
     this->m_help.signal_clicked().connect( sigc::mem_fun( *this , &Prompt::helpSignal));
 
+
+    //bouton de mise a jour continue
     this->m_swu_update.set_label("update");
     this->m_swu_update.set_active(false);
     this->m_swu_update.signal_changed().connect(sigc::mem_fun(*this, &Prompt::enterSignal));
@@ -673,54 +732,22 @@ Prompt::Prompt(void):TemplateGui() ,  Gtk::VBox()
     this->pack_start(*hbox);
 }
 
-
+/// @brief fonction a executeru au signal d'aide , ouvre une page web
 void Prompt::helpSignal(void)
 {
     utilitys::openWebPage("https://github.com/jeromefavrou/MFVGT/wiki");
 }
 
-void Prompt::enterSignal(void)
+/// @brief met a jour les information des version des groupe des materiel , fonction threadable
+/// @param _beg pointeur de depart
+/// @param _end pointeur de fin
+/// @param lsAtIgnor liste a ignoré
+/// @param files liste de fichieir a traité
+void Prompt::update_th( std::vector< std::string >::iterator const & _beg , std::vector< std::string >::iterator const & _end , std::vector<std::string > const & lsAtIgnor , std::vector<std::string > & files)
 {
-    const auto start{std::chrono::steady_clock::now()};
-
-    std::vector< std::string > lsAtSearch , lsAtIgnor;
-    
-    std::string && current_entry = this->m_entry.get_text();
-
-    if(current_entry.size() ==0)
-        return;
-
-    auto res = utilitys::sep_string<';'>( current_entry );
-    lsAtSearch.push_back( std::move(std::get<0>(res)) );
-
-    while( std::get<1>(res).size() > 0 )
+    for(auto lsDev = _beg ; lsDev!= _end ; lsDev++)
     {
-        res = utilitys::sep_string<';'>( std::get<1>(res) );
-
-        if( std::get<0>(res).front() == '!' )
-        {
-            lsAtIgnor.push_back( std::get<0>(res).substr(1 , std::get<0>(res).size() )) ;
-        }
-        else
-        {
-            lsAtSearch.push_back( std::move(std::get<0>(res)) );
-        }
-        
-    }
-
-    //cherche si l'entrée est valide
-
-
-    std::vector<std::string> files ;
-
-    // Utiliser la fonction récursive pour lister les fichiers
-    utilitys::listerFichiers(*this->atMainPath(), files);
-
-
-    //update
-    for(auto const & lsDev : lsAtSearch)
-    {
-        std::string current = lsDev;
+        std::string current = *lsDev;
 
         bool recurs = current.back() == '*' ? true : false;
 
@@ -747,9 +774,8 @@ void Prompt::enterSignal(void)
                 continue;
 
             if( std::find(lsAtIgnor.begin(), lsAtIgnor.end(), dev.get_name()) != lsAtIgnor.end() )
-            {
                 continue ;
-            }
+            
             if( (dev.get_name() ==  current && !recurs ) || (dev.get_name().find(current) != std::string::npos && recurs))
             {
                 dev.update( files , this->m_swu_update.get_active() , std::thread::hardware_concurrency()/2 );
@@ -759,17 +785,18 @@ void Prompt::enterSignal(void)
             }
         }
     }
-    
+}
 
-    //nettoyage des vue
-    for( auto & cont : this->atDevice()->front().get_containers() )
-        cont.atVersionShower()->clear();
-    
-    //ajoute les groupe a afficher
 
-    for(auto const & lsDev : lsAtSearch)
+/// @brief ajoute les groupe a affiché , fonction threadable
+/// @param _beg pointeur de depart
+/// @param _end pointeur de fin
+/// @param lsAtIgnor liste a ignoré
+void Prompt::showgrp_th( std::vector< std::string >::iterator const & _beg , std::vector< std::string >::iterator const & _end , std::vector<std::string > const & lsAtIgnor )
+{
+    for(auto lsDev = _beg ; lsDev!= _end ; lsDev++)
     {
-        std::string current = lsDev;
+        std::string current = *lsDev;
 
         bool recurs = current.back() == '*' ? true : false;
 
@@ -801,32 +828,37 @@ void Prompt::enterSignal(void)
                     for(auto & grp : cont)
                         cont.atVersionShower()->push_back(grp);
         }
-            
-
     }
+}
 
-    //mise a jour des vue
-    for( auto & cont : this->atDevice()->front().get_containers() )
+/// @brief concatene les groupes et verifi les incoérence, fonction threadable
+/// @param _beg poiteur de depart
+/// @param _end pointeur de fin
+void Prompt::update_showgrp_th( std::vector< VContainer >::iterator const & _beg , std::vector< VContainer >::iterator const & _end)
+{
+    for( auto  cont = _beg ; cont != _end ; cont++)
     {
         // fusionne les groupeVersion
-        for( auto it = cont.atVersionShower()->begin(); it != cont.atVersionShower()->end() ; it++ )
+        for( auto it = cont->atVersionShower()->begin(); it != cont->atVersionShower()->end() ; it++ )
         {
-            if(it +1 <  cont.atVersionShower()->end())
+            if(it +1 <  cont->atVersionShower()->end())
             {
-                for( auto it2 = it+1 ; it2 != cont.atVersionShower()->end() ; it2++ )
+                for( auto it2 = it+1 ; it2 != cont->atVersionShower()->end() ; it2++ )
                 {
                     if( it->get_id() == it2->get_id() )
                     {
+                        //fusionne les groupes
                         it->merge(*it2);
-                        it=cont.atVersionShower()->begin()-1;
-                        cont.atVersionShower()->erase(it2);
+                        it=cont->atVersionShower()->begin()-1;
+                        cont->atVersionShower()->erase(it2);
                         break;
                     }
                 } 
             }
         }
+
         //verifie si il a des incoherence entre fichier
-        for(auto & grpShow : *cont.atVersionShower())
+        for(auto & grpShow : *cont->atVersionShower())
         {
             grpShow.addMainPath( this->getMainPath() );
             grpShow.check( std::thread::hardware_concurrency() /2 );
@@ -834,26 +866,75 @@ void Prompt::enterSignal(void)
 
 
         //mise a jour des vue
-        cont.atVersionShower()->update_view();
+        cont->atVersionShower()->update_view();
 
     }
+}
+
+/// @brief fonction utiliser par le signal de validation du champd de prommpt
+void Prompt::enterSignal(void)
+{
+    const auto start{std::chrono::steady_clock::now()};
+
+    std::vector< std::string > lsAtSearch , lsAtIgnor;
+    
+    //recuperre le prompte
+    std::string && current_entry = this->m_entry.get_text();
+
+    if(current_entry.size() ==0)
+        return;
+
+    //crée la liste de recherche et la aliste a ignoré
+    auto res = utilitys::sep_string<';'>( current_entry );
+    lsAtSearch.push_back( std::move(std::get<0>(res)) );
+
+    while( std::get<1>(res).size() > 0 )
+    {
+        res = utilitys::sep_string<';'>( std::get<1>(res) );
+
+        if( std::get<0>(res).front() == '!' )
+            lsAtIgnor.push_back( std::get<0>(res).substr(1 , std::get<0>(res).size() )) ;
         
+        else
+            lsAtSearch.push_back( std::move(std::get<0>(res)) );
+        
+    }
 
 
+    std::vector<std::string> files ;
+    // Utiliser la fonction récursive pour lister l'enseble des fichiers du repertoir
+    utilitys::listerFichiers(*this->atMainPath(), files);
+
+
+    //update
+    utilitys::multi_thread_callback( std::bind( &Prompt::update_th , this , std::placeholders::_1 , std::placeholders::_2  , lsAtIgnor , std::ref(files)) , lsAtSearch , std::thread::hardware_concurrency()/2); 
+    
+
+    //nettoyage des vue
+    for( auto & cont : this->atDevice()->front().get_containers() )
+        cont.atVersionShower()->clear();
+    
+    //ajoute les groupe a afficher
+    utilitys::multi_thread_callback( std::bind( &Prompt::showgrp_th , this , std::placeholders::_1 , std::placeholders::_2  , lsAtIgnor) , lsAtSearch , std::thread::hardware_concurrency()/2); 
+
+    //mise a jour des vue
+    utilitys::multi_thread_callback( std::bind( &Prompt::update_showgrp_th , this , std::placeholders::_1 , std::placeholders::_2  ) , this->atDevice()->front().get_containers() , 0); 
+    
     const auto end{std::chrono::steady_clock::now()};
     const std::chrono::duration<double> elapsed_seconds{end - start};
 
     std::clog <<"succes load entry in : " << elapsed_seconds.count() * 1000 << " ms" <<std::endl;
     
-
 }
 
+/// @brief fonction appler par le sigal d'autocompletion du champ
+/// @param value valeur proposé d'autocompletion
 void Prompt::completion(std::string const & value)
 {
     std::string _prompt = this->m_entry.get_text();
     std::string last;
 
-     //garde que le dernier segment ( separer par espace )
+     //garde que le dernier segment ( separer par ; )
     for(auto i = _prompt.size() ;i >0 ; i--)
     {
         if( _prompt[i] == ';')
@@ -877,6 +958,7 @@ void Prompt::completion(std::string const & value)
     this->m_entry.activate();
 }
 
+/// @brief recompose la liste des autocompletion et garantie la casse et les contrainte de caractere
 void Prompt::completionList(void)
 {
     std::string currentText = this->m_entry.get_text(); 
@@ -895,6 +977,7 @@ void Prompt::completionList(void)
         bool maj =  *it >= 0x41 && *it <= 0x5A;
         bool min =  *it >= 0x61 && *it <= 0x7A;
         bool star = *it == '*' || *it == ';' || *it == '!';
+        
         if( !dec && !maj && !min && !star)
         {
             currentText.erase(it);
@@ -903,20 +986,18 @@ void Prompt::completionList(void)
 
         //upper
         if(min)
-        {
             *it = *it - char(32) ;
-        }
+        
     }
 
 
-
+    //mise a jour du champs de prompt
     this->m_entry.set_text(currentText);
-
     
-
     if( currentText.size() == 0 || currentText.back() =='*')
         return ;
 
+    //recupere la dernier valaur du prompt
     currentText = std::get<1>(  utilitys::sep_string<';'>(currentText, true) );
 
     if(currentText.front() == '!')
@@ -926,6 +1007,7 @@ void Prompt::completionList(void)
 
     std::vector<std::string> autoComplet;
 
+    //recré la liste d'autocompletion
     for(auto & device : *this->m_devices)
     {
         std::string tmp  =device.get_name();
@@ -941,6 +1023,7 @@ void Prompt::completionList(void)
         }
     }
 
+    //mise a jour de la liste
     this->m_autoCompletion.update(autoComplet);
 
 }

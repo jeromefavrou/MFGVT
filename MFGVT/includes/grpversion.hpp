@@ -208,38 +208,7 @@ void GrpVersion::check_callback(const GrpVersion::iterator & it_s ,const GrpVers
 void GrpVersion::check(unsigned int _n_thread)
 {
     //tout dans le thread principal 
-    if(_n_thread < 2 || this->size() < 2)
-        this->check_callback( this->begin() , this->end() );
-    
-    else
-    {
-        std::vector< std::thread > tmp_th;
-
-        int divider = this->size() / _n_thread;
-
-        if( divider == 0)
-        {
-            this->check_callback( this->begin() , this->end() );
-            return ;
-        }
-
-        for( unsigned int i = 0 ; i < _n_thread ; i++)
-        {
-            if( i == _n_thread-1)
-            {
-                tmp_th.emplace_back( &GrpVersion::check_callback, this, this->begin() + divider * i , this->end() );
-            }
-            else
-            {
-                tmp_th.emplace_back( &GrpVersion::check_callback, this, this->begin() + divider * i , this->begin() + divider * (i+1)  );
-            }
-        }
-
-        for( auto & th : tmp_th)
-            th.join();
-
-    }
-    
+    utilitys::multi_thread_callback( std::bind(&GrpVersion::check_callback, this, std::placeholders::_1 , std::placeholders::_2 ) , *this , _n_thread );
 }
 
 

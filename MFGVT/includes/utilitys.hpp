@@ -12,6 +12,7 @@
 #include <filesystem>
 #include <iostream>
 #include <regex>
+#include <functional>
 
 #include <cryptopp/cryptlib.h>
 #include <cryptopp/sha.h>
@@ -428,6 +429,72 @@ namespace utilitys
             throw std::logic_error("bad mainPath acces");
 
         return this->m_mainPath;
+    }
+
+
+    /// @brief repartie sur plusieurs thread si possible un dispatcher( std::vector<>) pour parallelisé des taches
+    /// @tparam Bound_func pointeur vers la fonction a parallelisé
+    /// @tparam Dispatcher type du dispatcher
+    /// @param _func pointeur vers la fonction 
+    /// @param _dispatch_ref std::vector<Dispatcher>
+    /// @param _n_thread nombre de thread a utilisé
+    template< class Bound_func , class Dispatcher> void multi_thread_callback( Bound_func const & _func ,std::vector<Dispatcher> & _dispatch_ref  , unsigned int _n_thread = 0)
+    {
+        auto full = std::bind(_func , _dispatch_ref.begin() ,_dispatch_ref.end()  );
+
+        if(_n_thread < 2 || _dispatch_ref.size() < 2)
+           full();
+        else
+        {
+            std::vector< std::jthread > tmp_th;
+
+            int divider = _dispatch_ref.size() / _n_thread;
+
+            if( divider == 0)
+            {
+                if( _n_thread  >= 4)
+                {
+                    divider = _dispatch_ref.size() / (_n_thread /2);
+                    
+                    if(divider == 0)
+                        full();
+                }  
+                else
+                    full();
+            }
+            else
+            {
+                for( unsigned int i = 0 ; i < _n_thread ; i++)
+                {
+                    if( i == _n_thread-1)
+                        tmp_th.emplace_back( std::bind(_func,_dispatch_ref.begin() + divider * i , _dispatch_ref.end() ));
+                    
+                    else
+                        tmp_th.emplace_back( std::bind(_func, _dispatch_ref.begin() + divider * i , _dispatch_ref.begin() + divider * (i+1)   ));
+                }
+
+                for( auto & th : tmp_th)
+                    th.join();
+            }
+        }
+    }
+
+    /// @brief convertie un type en un autre
+    /// @tparam T1 type d'entrée
+    /// @tparam T2 type de sotrie
+    /// @param d variable d'entré
+    /// @return valeur convertie
+    template<class T1,class T2> T2 ss_cast(T1 const & d)
+    {
+        std::stringstream _ss_cast;
+
+        _ss_cast << d;
+
+        T2 tps;
+
+        _ss_cast >> tps;
+
+        return tps;
     }
 
 };
