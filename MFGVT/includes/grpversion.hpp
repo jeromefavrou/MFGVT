@@ -22,6 +22,8 @@ class GrpVersion : public std::vector<Version> , public utilitys::MainPathShared
 
         void check(unsigned int _n_thread = 0);
 
+        bool inError(void);
+
     private:
 
         void check_callback(const GrpVersion::iterator & it_s , const GrpVersion::iterator & it_e);
@@ -141,7 +143,7 @@ void GrpVersion::check_callback(const GrpVersion::iterator & it_s ,const GrpVers
     {
         for( auto it2 = this->begin() ; it2 != this->end() ;it2++)
         {
-        //ne regarde que les fichier strictement confodable ( jumeau)
+            //ne regarde que les fichier strictement confodable ( jumeau )
             if( it->cmpBaseName(*it2) && !it->cmpFile(*it2) )
             {
                 //verifie les date de creaztion
@@ -211,5 +213,16 @@ void GrpVersion::check(unsigned int _n_thread)
     utilitys::multi_thread_callback( std::bind(&GrpVersion::check_callback, this, std::placeholders::_1 , std::placeholders::_2 ) , *this , _n_thread );
 }
 
+
+/// @brief retourn si le groupe possede une erreur
+bool GrpVersion::inError(void)
+{
+    for(auto const & vers : *this)
+        if( vers.get_error() != 0 )
+            return true;
+    
+
+    return false;
+}
 
 #endif

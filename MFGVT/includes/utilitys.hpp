@@ -3,7 +3,11 @@
 
 
 #include <windows.h>
+#include <shobjidl.h>
 #include <tchar.h>
+#include <locale>
+#include <codecvt>
+
 #include <vector>
 #include <fstream>
 #include <string>
@@ -26,9 +30,27 @@
 /// ensemble de fonction static utilitaire
 namespace utilitys
 {
+    /// @brief convertsion d'un wstring en std::string
+    /// @param wstr 
+    /// @return 
+    static std::string wstringToString(const wchar_t* wstr) 
+    {
+        std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> converter;
+        return converter.to_bytes(wstr);
+    } 
+
+    /// @brief convertsion d'un string  en std::wstring
+    /// @param str 
+    /// @return 
+    static std::wstring stringToWstring(const std::string& str) 
+    {
+        std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
+        return converter.from_bytes(str);
+    }
+
     /// @brief copy d'une chaine str dans le presse papier via l'api windows
     /// @param _cpy chaine de caratere string
-    static void cpyToPP(const std::string _cpy)
+    static void cpyToPP(const std::string & _cpy)
     {
         // Ouvrir le presse-papiers
         if (OpenClipboard(NULL)) 
@@ -495,6 +517,50 @@ namespace utilitys
         _ss_cast >> tps;
 
         return tps;
+    }
+
+    /// @brief retourn la cible d'un lien
+    /// @param _lnk 
+    /// @return 
+    static std::string get_targetOfLnk( std::string const & _lnk)
+    {
+        // Initialisation de la COM (Component Object Model)
+        CoInitialize(NULL);
+
+        // Interface pour accéder aux propriétés du raccourci
+        IShellLink* psl;
+        HRESULT hr = CoCreateInstance(CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER, IID_IShellLinkW, (LPVOID*)&psl);
+
+        if (SUCCEEDED(hr)) {
+            IPersistFile* ppf;
+            // Charge le raccourci
+            hr = psl->QueryInterface(IID_IPersistFile, (LPVOID*)&ppf);
+
+            if (SUCCEEDED(hr)) {
+                hr = ppf->Load( stringToWstring(_lnk).c_str() , STGM_READ);
+                
+                if (SUCCEEDED(hr)) {
+                    // Récupère le chemin de la cible
+                    wchar_t targetPath[MAX_PATH];
+                    hr = psl->GetPath((LPSTR)targetPath, MAX_PATH, NULL, SLGP_UNCPRIORITY);
+
+                    if (SUCCEEDED(hr)) 
+                    {
+                        return  wstringToString(targetPath) ;
+                    } 
+
+                } 
+
+                ppf->Release();
+            } 
+
+            psl->Release();
+        } 
+
+        // Libération de la COM
+        CoUninitialize();
+
+        return "";
     }
 
 };

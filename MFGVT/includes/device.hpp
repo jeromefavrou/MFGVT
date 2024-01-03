@@ -3,8 +3,6 @@
 
 #include "../includes/container.hpp"
 
-#include <format>
-#include <chrono>
 #include <future>
 #include <mutex>
 
@@ -185,29 +183,33 @@ void Device::container_init_th(  const std::vector< VContainer >::iterator & _be
                     
                     tmp.extension = std::get<1>(nameExt);
 
-                    std::string tmpFileName =  *this->atMainPath() + "\\"+ tmp.dir +"\\"+ tmp.name + "."+ tmp.extension;
+                    tmp.update_dates(*this->atMainPath()+ "\\");
+                    
+                    if(tmp.extension == "lnk")
+                    {
+                        tmp.createLnkVersion(*this->atMainPath() + "\\");
 
+                        if( tmp.is_lnk() )
+                        {
+                            tmp.ptr_lnk->id = utilitys::regSearch( c->get_reg_id() , tmp.ptr_lnk->name);
+                            
+                            if(tmp.id.size() == 0)
+                                tmp.ptr_lnk->id = tmp.ptr_lnk->name;
 
-                    // Obtenez le temps de dernière modification du fichier
-                    try
-                    {
-                        std::filesystem::file_time_type lastWriteTime = std::filesystem::last_write_time(tmpFileName);
-                        tmp.modifDate = std::string(std::format("{}",lastWriteTime)).substr(0,10) ;
-                    }
-                    catch(const std::exception & e)
-                    {
-                        tmp.add_error(Version::EF_ACCES);
-                        std::cerr << e.what() << std::endl;
-                    }
+                            tmp.ptr_lnk->autor =  std::move(utilitys::regSearch( c->get_reg_autor() , tmp.ptr_lnk->name));
+                            tmp.ptr_lnk->part =  std::move(utilitys::regSearch( c->get_reg_part() , tmp.ptr_lnk->name));
+                            tmp.ptr_lnk->version =  std::move(utilitys::regSearch( c->get_reg_version() , tmp.ptr_lnk->name));
 
-                    try
-                    {
-                        tmp.createDate = utilitys::get_createDate(tmpFileName);
-                    }
-                    catch(const std::exception & e)
-                    {
-                        tmp.add_error(Version::EF_ACCES);
-                        std::cerr << e.what() << std::endl;
+                            tmp.ptr_lnk->update_dates();
+
+                            //met en errerur si lien sur un lien
+                            if(tmp.ptr_lnk->extension == "lnk")
+                            {
+                                tmp.ptr_lnk->add_error(Version::EF_LNK);
+                                tmp.add_error(Version::EF_LNK);
+                            }
+                                
+                        }
                     }
 
                     c->add2GrpVersion( std::move(tmp) );

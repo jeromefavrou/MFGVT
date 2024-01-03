@@ -221,6 +221,8 @@ class VersionShower :  public TemplateGui , public Gtk::VBox , public std::vecto
         VersionShower(void);
         void update_view( void);
 
+        void addCssProvider(Glib::RefPtr<Gtk::CssProvider> _cssProvider);
+
     private :
 
        void on_clic(GrpVersion _cpy);
@@ -339,6 +341,41 @@ VersionShower::VersionShower(void):TemplateGui(),Gtk::VBox()
     this->m_dialogInfoGrp.get_content_area()->add( *sw2 );
 }
 
+/// @brief réecriture du poiteur provider
+/// @param _cssProvider ptr provider
+void VersionShower::addCssProvider(Glib::RefPtr<Gtk::CssProvider> _cssProvider)
+{
+    this->m_cssProvider = _cssProvider;
+
+    this->get_style_context()->add_class( "VersionShower" );
+    this->get_style_context()->add_provider( this->atCssProvider() , GTK_STYLE_PROVIDER_PRIORITY_USER);
+
+    this->m_complet_path.get_style_context()->add_class( "VersionShowerEntry" );
+    this->m_complet_path.get_style_context()->add_provider( this->atCssProvider() , GTK_STYLE_PROVIDER_PRIORITY_USER);
+
+    this->m_cpyPath.get_style_context()->add_class( "VersionShowerButtonPP" );
+    this->m_cpyPath.get_style_context()->add_class( "Button" );
+    this->m_cpyPath.get_style_context()->add_provider( this->atCssProvider() , GTK_STYLE_PROVIDER_PRIORITY_USER);
+
+
+    this->m_device_sel.get_style_context()->add_class( "VersionShowerButtonDevSel" );
+    this->m_device_sel.get_style_context()->add_class( "ComboTextButton" );
+    this->m_device_sel.get_style_context()->add_provider( this->atCssProvider() , GTK_STYLE_PROVIDER_PRIORITY_USER);
+
+    this->m_version_sel.get_style_context()->add_class( "VersionShowerButtonVerSel" );
+    this->m_version_sel.get_style_context()->add_class( "ComboTextButton" );
+    this->m_version_sel.get_style_context()->add_provider( this->atCssProvider() , GTK_STYLE_PROVIDER_PRIORITY_USER);
+    
+    this->m_ext_sel.get_style_context()->add_class( "VersionShowerButtonExtSel" );
+    this->m_ext_sel.get_style_context()->add_class( "ComboTextButton" );
+    this->m_ext_sel.get_style_context()->add_provider( this->atCssProvider() , GTK_STYLE_PROVIDER_PRIORITY_USER);
+
+    this->m_part_sel.get_style_context()->add_class( "VersionShowerButtonPartSel" );
+    this->m_part_sel.get_style_context()->add_class( "ComboTextButton" );
+    this->m_part_sel.get_style_context()->add_provider( this->atCssProvider() , GTK_STYLE_PROVIDER_PRIORITY_USER); 
+
+}
+
 /// @brief ajoute au presse papier la selection en cours
 /// @param  
 void VersionShower::clipBoardCpy(void)
@@ -367,10 +404,30 @@ void VersionShower::update_view( void)
         auto bp = Gtk::manage(new Gtk::Button(  grp.get_id() , Gtk::PACK_SHRINK ));
 
         bp->signal_clicked().connect(sigc::bind<GrpVersion>(sigc::mem_fun(*this,&VersionShower::on_clic), grp));
+
+        bp->get_style_context()->add_class( "VersionShowerButtonId" );
+        bp->get_style_context()->add_class( "Button" );
+
+        if( grp.inError() )
+        {
+            bp->get_style_context()->add_class( "VersionShowerButtonIdKo" );
+        }
+        else
+        {
+            bp->get_style_context()->add_class( "VersionShowerButtonIdOk" );
+        }
+        
+        bp->get_style_context()->add_provider( this->atCssProvider() , GTK_STYLE_PROVIDER_PRIORITY_USER);
+
         this->id.pack_start(*bp,Gtk::PACK_SHRINK);
 
 
         auto lab2 = Gtk::manage(new Gtk::Button( utilitys::ss_cast<size_t , std::string>( grp.size() ) , Gtk::PACK_SHRINK ));
+
+        lab2->get_style_context()->add_class( "VersionShowerButtonOccur" );
+        lab2->get_style_context()->add_class( "Button" );
+        lab2->get_style_context()->add_provider( this->atCssProvider() , GTK_STYLE_PROVIDER_PRIORITY_USER);
+
         lab2->signal_clicked().connect(sigc::bind<GrpVersion>(sigc::mem_fun(*this,&VersionShower::on_clic), grp));
         lab2->signal_clicked().connect(  sigc::mem_fun(this->m_dialogInfoGrp ,&DialogThread::show_all)  );
         this->nb_occur.pack_start(*lab2,Gtk::PACK_SHRINK);
@@ -552,9 +609,19 @@ void VersionShower::on_clic(GrpVersion _cpy)
 
     for(  auto & vers : this->m_current_sel)
     {
-        this->m_grpInfoPath.pack_start(*Gtk::manage( new Gtk::Button(*this->atMainPath()+"\\"+ vers.get_subPathFile())),Gtk::PACK_SHRINK);
+        auto tmp1 =Gtk::manage( new Gtk::Button(*this->atMainPath()+"\\"+ vers.get_subPathFile()));
 
-        this->m_grpInfoError.pack_start(*Gtk::manage( new Gtk::Button( Version::VersionError(vers) )),Gtk::PACK_SHRINK);
+        tmp1->get_style_context()->add_class( "VersionShowerGrpInfoPath" );
+        tmp1->get_style_context()->add_provider( this->atCssProvider() , GTK_STYLE_PROVIDER_PRIORITY_USER);
+
+        this->m_grpInfoPath.pack_start(*tmp1 ,Gtk::PACK_SHRINK);
+
+        auto tmp2 =Gtk::manage( new Gtk::Button( Version::VersionError(vers) ));
+
+        tmp2->get_style_context()->add_class( "VersionShowerGrpInfoError" );
+        tmp2->get_style_context()->add_provider( this->atCssProvider() , GTK_STYLE_PROVIDER_PRIORITY_USER);
+
+        this->m_grpInfoError.pack_start(*tmp2,Gtk::PACK_SHRINK);
     }
 
 
@@ -568,13 +635,16 @@ void VersionShower::update_complet_path(void)
 {
     for(auto & vers : this->m_current_sel)
     {
-
+        
         if( this->m_device_sel.get_active_text() == vers.device && "pdf" == vers.extension  && this->m_part_sel.get_active_text() == vers.part && this->m_version_sel.get_active_text() == vers.version)
         {   
             try
             {
                 //lit pdf et l'affiche 
-                this->atPdfShower()->read_pdf(*this->atMainPath()+"\\"+ vers.get_subPathFile());
+                if( vers.is_lnk())
+                    this->atPdfShower()->read_pdf( vers.ptr_lnk->get_subPathFile());
+                else
+                    this->atPdfShower()->read_pdf(*this->atMainPath()+"\\"+ vers.get_subPathFile());
                 this->atPdfShower()->show_all();
             }
             catch(const std::exception& e)
@@ -587,7 +657,10 @@ void VersionShower::update_complet_path(void)
         ///remlpis le chemin compelt
         if( this->m_device_sel.get_active_text() == vers.device && this->m_ext_sel.get_active_text() == vers.extension  && this->m_part_sel.get_active_text() == vers.part && this->m_version_sel.get_active_text() == vers.version)
         {
-            this->m_complet_path.set_text(*this->atMainPath()+"\\"+ vers.get_subPathFile());
+            if( vers.is_lnk())
+                this->m_complet_path.set_text(vers.ptr_lnk->get_subPathFile());
+            else
+                this->m_complet_path.set_text(*this->atMainPath()+"\\"+ vers.get_subPathFile());
 
             return ;
         
@@ -611,6 +684,8 @@ class AutoCompletVisualiz :  public TemplateGui , public Gtk::ScrolledWindow
 
          sigc::signal<void ,std::string> & signal_select(void);
 
+         void addCssProvider(Glib::RefPtr<Gtk::CssProvider> _cssProvider);
+
     private:
     Gtk::HBox m_hbox;
     std::vector<Gtk::Button> m_button;
@@ -627,6 +702,18 @@ class AutoCompletVisualiz :  public TemplateGui , public Gtk::ScrolledWindow
 AutoCompletVisualiz::AutoCompletVisualiz(void):TemplateGui(), Gtk::ScrolledWindow()
 {
     this->add( this->m_hbox );
+}
+
+void AutoCompletVisualiz::addCssProvider(Glib::RefPtr<Gtk::CssProvider> _cssProvider)
+{
+    this->m_cssProvider = _cssProvider;
+    this->get_style_context()->add_class( "AutoCompletVisualizeScroll" );
+
+    this->get_style_context()->add_provider( this->atCssProvider() , GTK_STYLE_PROVIDER_PRIORITY_USER);
+
+
+    this->m_hbox.get_style_context()->add_class( "AutoCompletVisualizeBar" );
+    this->m_hbox.get_style_context()->add_provider( this->atCssProvider() , GTK_STYLE_PROVIDER_PRIORITY_USER);
 }
 
 /// @brief emmet un signal si clique
@@ -656,11 +743,16 @@ void AutoCompletVisualiz::update(std::vector<std::string> const & list)
     for(size_t i =0 ; i <  list.size() ;i++)
     {
         this->m_button.push_back( Gtk::Button(list[i]));
-        this->m_hbox.pack_start( this->m_button.back() ,  Gtk::PACK_SHRINK);
+        
 
         this->m_button.back().set_can_focus(false);
         this->m_button.back().set_focus_on_click(false);
         this->m_button.back().signal_clicked().connect( sigc::bind<std::string>(sigc::mem_fun(*this, &AutoCompletVisualiz::signal_clicked),list[i]));
+    
+        this->m_button.back().get_style_context()->add_class( "AutoCompletVisualizeButton" );
+        this->m_button.back().get_style_context()->add_class( "Button" );
+        this->m_button.back().get_style_context()->add_provider( this->atCssProvider() , GTK_STYLE_PROVIDER_PRIORITY_USER);
+        this->m_hbox.pack_start( this->m_button.back() ,  Gtk::PACK_SHRINK);
     }
 
     this->m_hbox.show_all();
@@ -673,6 +765,8 @@ class Prompt  :  public TemplateGui , public Gtk::VBox
     public : 
 
         Prompt(void);
+
+        void addCssProvider(Glib::RefPtr<Gtk::CssProvider> _cssProvider);
  
     private:
         void completionList(void);
@@ -730,6 +824,31 @@ Prompt::Prompt(void):TemplateGui() ,  Gtk::VBox()
 
     this->pack_start(this->m_autoCompletion);
     this->pack_start(*hbox);
+}
+
+/// @brief reecriture de l'ajout du ptr css provider
+/// @param _cssProvider pointeur
+void Prompt::addCssProvider(Glib::RefPtr<Gtk::CssProvider> _cssProvider)
+{
+    this->m_cssProvider = _cssProvider;
+
+    this->m_autoCompletion.addCssProvider(this->getCssProvider());
+
+    this->get_style_context()->add_class( "PromptBar" );
+
+    this->get_style_context()->add_provider( this->getCssProvider() , GTK_STYLE_PROVIDER_PRIORITY_USER);
+
+    this->m_entry.get_style_context()->add_class( "PromptEntry" );
+    this->m_entry.get_style_context()->add_provider( this->getCssProvider() , GTK_STYLE_PROVIDER_PRIORITY_USER);
+
+    this->m_help.get_style_context()->add_class( "PromptHelp" );
+    this->m_help.get_style_context()->add_class( "Button" );
+    this->m_help.get_style_context()->add_provider( this->getCssProvider() , GTK_STYLE_PROVIDER_PRIORITY_USER);
+
+
+    this->m_swu_update.get_style_context()->add_class( "SwitwhButton" );
+    this->m_swu_update.get_style_context()->add_provider( this->getCssProvider() , GTK_STYLE_PROVIDER_PRIORITY_USER);
+
 }
 
 /// @brief fonction a executeru au signal d'aide , ouvre une page web
