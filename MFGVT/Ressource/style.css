@@ -1,0 +1,179 @@
+
+.Button:hover
+{
+    opacity: 1;
+}
+
+
+.PromptBar
+{
+    background: linear-gradient(170deg, rgba(2,0,36,1) 0%, rgba(106,235,213,1) 47%, rgba(0,212,255,1) 100%);
+    padding: 10px 10px 10px 10px; 
+}
+
+.PromptEntry
+{
+    background-color: white;
+    
+    opacity: 0.6;
+}
+.PromptEntry:focus 
+{
+        opacity: 0.9;
+}
+
+
+.PromptHelp
+{
+    background-image: url("icon_help.png");
+
+    background-repeat: no-repeat;
+    background-size:contain;
+    background-position: center;
+
+    min-width : 25px;
+    min-height : 25px;
+    border: none;
+    box-shadow: none;
+    padding : 10px;
+
+    opacity: 0.7;
+
+    border-radius: 50%;
+
+    margin-left: 10px;
+    margin-right: 10px;
+}
+
+.PromptHelp:hover , .VersionShowerButtonPP:hover
+{
+    background-color: cyan;
+}
+
+
+.AutoCompletVisualizeScroll
+{
+    margin-bottom: 2px;
+}
+
+
+.AutoCompletVisualizeButton
+{
+    opacity: 0.6;
+    margin-right: 2px;
+    font-size: 0.8em ;
+    font-family: Arial, Helvetica, sans-serif;
+
+}
+
+.AutoCompletVisualizeButton:hover
+{
+    background: linear-gradient(170deg, rgba(2,0,36,1) 0%, rgba(106,235,213,1) 47%, rgba(0,212,255,1) 100%);
+    border-color: black;
+    border : 2px ;
+    margin-right: 2px;
+}
+
+.VersionShower
+{
+    background-color: whitesmoke;
+}
+
+.VersionShowerEntry
+{
+    margin: 10px 10px 10px 10px; 
+    background-color: white;
+}
+
+.VersionShowerButtonPP
+{
+    background-image: url("icon_pp.png");
+    background-repeat: no-repeat;
+    background-size:contain;
+    background-position: center;
+
+    min-width : 25px;
+    min-height : 25px;
+    border: solid  1px;
+    border-color: black;
+    box-shadow: none;
+    padding : 10px;
+
+    opacity: 0.7;
+
+    margin-left: 10px;
+    margin-right: 10px;
+}
+
+.ComboTextButton
+{
+    opacity: 1;
+}
+
+.ComboTextButton:hover
+{
+    opacity: 0.5;
+}
+
+.VersionShowerButtonId , .VersionShowerButtonOccur
+{
+    border: 3px ridge transparent;
+    opacity: 1;
+    font-weight : bold;
+}
+
+.VersionShowerButtonId:hover , .VersionShowerButtonOccur:hover
+{
+    transition: all 1.3s cubic-bezier(0.5, 0.24, 0, 1);
+    border-color: black;
+}
+
+.VersionShowerButtonIdOk 
+{
+    color: green;
+}
+
+.VersionShowerButtonIdKo
+{
+    color: orangered;
+}
+
+.VersionShowerButtonIdOk:hover
+{
+    border-color: green;
+}
+
+.VersionShowerButtonIdKo:hover
+{
+    border-color: orangered;
+}
+
+.VersionShowerButtonIdOk:focus
+{
+    border-color: green;
+    background: linear-gradient(170deg, rgba(2,0,36,1) 0%, rgba(106,235,213,1) 47%, rgba(0,212,255,1) 100%);
+}
+
+.VersionShowerButtonIdKo:focus
+{
+    border-color: orangered;
+    background: linear-gradient(170deg, rgba(2,0,36,1) 0%, rgba(255,171,90,1) 47%, rgba(0,212,255,1) 100%);
+}
+
+
+.VersionShowerGrpInfoPath 
+{
+    border: 3px ridge transparent;
+    opacity: 1;
+}
+
+.VersionShowerGrpInfoError
+{
+    border: 3px ridge transparent;
+    font-weight: bold;
+}
+
+.SwitwhButton
+{
+    margin-left: 10px;
+}
