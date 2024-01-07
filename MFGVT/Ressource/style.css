@@ -161,16 +161,36 @@
 }
 
 
-.VersionShowerGrpInfoPath 
+.VersionShowerGrpInfoError , .VersionShowerGrpInfoPath , .VersionShowerGrpInfoPathLink , .VersionShowerGrpInfoCreateDate , .VersionShowerGrpInfoModifDate, .VersionShowerGrpInfoAuthor , .VersionShowerGrpInfoVersion  ,.VersionShowerGrpInfoPart
 {
     border: 3px ridge transparent;
+    border-right-color: gray;
     opacity: 1;
 }
+
+.VersionShowerGrpKo
+{
+    color : orangered;
+}
+.VersionShowerGrpInfoPath , .VersionShowerGrpInfoPathLink
+{
+    min-width : 300px;
+}
+
+
+.VersionShowerGrpKo:hover ,.VersionShowerGrpKo:focus
+{
+    color : orangered;
+    border-color : orange;
+    border-right-color: gray;
+}
+
 
 .VersionShowerGrpInfoError
 {
     border: 3px ridge transparent;
     font-weight: bold;
+    border-right-color: gray;
 }
 
 .SwitwhButton
