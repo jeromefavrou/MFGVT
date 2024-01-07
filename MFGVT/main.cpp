@@ -1,3 +1,13 @@
+/*
+                    GNU GENERAL PUBLIC LICENSE
+                       Version 3, 29 June 2007
+
+ Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>
+ Everyone is permitted to copy and distribute verbatim copies
+ of this license document, but changing it is not allowed.
+*/
+
+
 #include "includes/gtkmmcomponent.hpp"
 
 
@@ -59,6 +69,7 @@ void WindowMain::init(void)
     this->maximize();
 
     this->addCssProvider( Gtk::CssProvider::create() );
+    this->m_prompt.addCssProvider( this->atCssProvider() );
 
     //chargement du fichier css
 
@@ -70,7 +81,8 @@ void WindowMain::init(void)
     }
     catch(Gtk::CssProviderError const & e)
     {
-        std::cerr << "Error : " << cssFile << " cannot be load" << std::endl;
+        const LogicExceptionDialog er(cssFile + " cannot be load : " + e.what());
+        er.show();
     }
 
     //class pour fichier css
@@ -110,6 +122,8 @@ void WindowMain::init(void)
             {
                 dev.get_containers().at(i).addVersionShower( this->atDevice()->front().get_containers().at(i).atVersionShower() ) ;
                 dev.get_containers().at(i).atVersionShower()->addPdfShower( this->m_pdfS );
+
+                dev.get_containers().at(i).atVersionShower()->addCssProvider( this->atCssProvider());
             }
         }
     }
@@ -123,7 +137,7 @@ void WindowMain::init(void)
 
 int main(int argc, char *argv[]) 
 {
-    auto progmPath = utilitys::sep_sub_and_name(std::string(argv[0]));
+    auto progmPath = File::sep_sub_and_name(std::string(argv[0]));
 
     Gtk::Main app(argc, argv);
 
@@ -148,6 +162,11 @@ int main(int argc, char *argv[])
         fenetre.show_all();
         
         Gtk::Main::run(fenetre);
+    }
+    catch(LogicExceptionDialog const & _e)
+    {
+        _e.show();
+        std::cin.get();
     }
     catch(std::exception const & _e)
     {
