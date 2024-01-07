@@ -1,3 +1,12 @@
+/*
+                    GNU GENERAL PUBLIC LICENSE
+                       Version 3, 29 June 2007
+
+ Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>
+ Everyone is permitted to copy and distribute verbatim copies
+ of this license document, but changing it is not allowed.
+*/
+
 #ifndef __GTKMMCOMPONENT_HPP__
 #define __GTKMMCOMPONENT_HPP__
 
@@ -51,11 +60,15 @@ protected :
 TemplateGui::TemplateGui(void):utilitys::MainPathSharedTemplate()
 {
     this->m_parent = nullptr;
+    this->m_pdfS = nullptr;
+    this->m_devices = nullptr;
 }
 
 TemplateGui::~TemplateGui(void)
 {
     this->m_parent = nullptr;
+    this->m_pdfS = nullptr;
+    this->m_devices = nullptr;
 }
 
 //setter
@@ -98,7 +111,7 @@ ptrVecDevice const TemplateGui::getDevice(void)
 ptrVecDevice const TemplateGui::atDevice(void)
 {
     if(!this->m_devices)
-        throw std::logic_error("bad devices acces");
+        throw LogicExceptionDialog("bad devices acces");
 
     return this->m_devices;
 }
@@ -106,7 +119,7 @@ ptrVecDevice const TemplateGui::atDevice(void)
 Glib::RefPtr<Gtk::CssProvider> const TemplateGui::atCssProvider(void)
 {
     if(!this->m_cssProvider)
-        throw std::logic_error("bad provider acces");
+        throw LogicExceptionDialog("bad provider acces");
 
     return this->m_cssProvider;
 }
@@ -115,7 +128,7 @@ Glib::RefPtr<Gtk::CssProvider> const TemplateGui::atCssProvider(void)
 Gtk::Window* const TemplateGui::atParent(void)
 {
     if(this->m_parent == nullptr)
-       throw std::logic_error("bad raw window acces");
+       throw LogicExceptionDialog("bad raw window acces");
 
     return this->m_parent;
 }
@@ -128,7 +141,7 @@ void TemplateGui::addPdfShower( const std::shared_ptr< PdfShower > & _pdfS)
 const std::shared_ptr< PdfShower > &  TemplateGui::atPdfShower( void) const
 {
     if(!this->m_pdfS)
-        throw std::logic_error("bad PdfShower acces");
+        throw LogicExceptionDialog("bad PdfShower acces");
 
     return this->m_pdfS;
 }
@@ -151,8 +164,9 @@ class PdfShower : public TemplateGui , public Gtk::ScrolledWindow
     private:
     std::vector<Gtk::Image> m_vec_images;
     std::vector<poppler::image> m_vec_pdfImage;
-    Glib::RefPtr< Gtk::Adjustment > m_vadj , m_hadj;
     Gtk::VBox m_bx;
+
+    std::string m_current_file;
 
 };
 
@@ -161,12 +175,18 @@ PdfShower::PdfShower(void ):TemplateGui(),Gtk::ScrolledWindow()
 {
     this->set_policy(Gtk::POLICY_NEVER, Gtk::POLICY_AUTOMATIC);
     this->add(this->m_bx);
+
+    this->m_current_file ="";
 }
 
 /// @brief lecture et affichage d'un pdf
 /// @param _file chemin du ficheir pdf
 void PdfShower::read_pdf( const std::string & _file )
 {
+
+    if( this->m_current_file == _file)
+        return ;
+
     //lecture du pdf
     poppler::document *pdf_document = poppler::document::load_from_file( _file );
     
@@ -176,16 +196,16 @@ void PdfShower::read_pdf( const std::string & _file )
 
     //verification de la validité du poiteur
     if( !pdf_document )
-        throw std::ios_base::failure( _file + " cannot be opened");
+        throw LogicExceptionDialog( _file + " cannot be opened");
 
 
     //lecture des différente page 
-    for(auto i = 0 ; i < pdf_document->pages() ; i++)
+    for(auto i = 0 ; i < (pdf_document->pages() <=10 ? pdf_document->pages() : 10 ); i++)
     {
         poppler::page * pdf_page = pdf_document->create_page(i);
 
         if(!pdf_page)
-           throw std::ios_base::failure( _file + " cannot be read page");
+           throw LogicExceptionDialog( _file + " cannot be read page");
         
 
         this->m_vec_pdfImage.push_back(poppler::page_renderer().render_page(pdf_page));
@@ -200,7 +220,9 @@ void PdfShower::read_pdf( const std::string & _file )
         this->m_bx.pack_start( this->m_vec_images.back() );
 
     }
-    
+
+
+    this->m_current_file = _file;
 }
 
 /// @brief netoyyage de l'objet en cour
@@ -229,7 +251,7 @@ class VersionShower :  public TemplateGui , public Gtk::VBox , public std::vecto
        void update_complet_path(void);
        void clipBoardCpy(void);
 
-       Gtk::VBox id  , nb_occur , m_grpInfoPath , m_grpInfoError;
+       Gtk::VBox id  , nb_occur , m_grpInfoPath , m_grpInfoError , m_grpInfoPathLink , m_grpInfoDateCreate , m_grpInfoDateModif , m_grpInfoAutor, m_grpInfoVersion , m_grpInfoPart;
        GrpVersion m_current_sel;
        Gtk::Button  m_cpyPath;
        Gtk::Label m_createDate , m_modifDate , m_autor;
@@ -239,7 +261,7 @@ class VersionShower :  public TemplateGui , public Gtk::VBox , public std::vecto
 
        DialogThread m_dialogInfoGrp;
 
-       bool m_onclickLock;
+       bool m_onclickLock , m_auth_updatePath;
 };
 
 
@@ -248,6 +270,7 @@ class VersionShower :  public TemplateGui , public Gtk::VBox , public std::vecto
 VersionShower::VersionShower(void):TemplateGui(),Gtk::VBox()
 {
     this->m_onclickLock = false;
+    this->m_auth_updatePath = false;
     const int colSize = 2;
     Gtk::Frame *tmp[colSize] ;
 
@@ -326,13 +349,26 @@ VersionShower::VersionShower(void):TemplateGui(),Gtk::VBox()
     this->m_dialogInfoGrp.maximize();
     
     this->m_dialogInfoGrp.set_position(Gtk::WIN_POS_CENTER);
-    Gtk::Table *infoGrp = Gtk::manage(new Gtk::Table( 2  , 2 ));
+    Gtk::Table *infoGrp = Gtk::manage(new Gtk::Table( 2  , 8 ));
 
-    infoGrp->attach( *Gtk::manage(new Gtk::Label("Path File")) , 0, 1, 0, 1 , Gtk::SHRINK , Gtk::SHRINK);
-    infoGrp->attach( *Gtk::manage(new Gtk::Label("Error")) , 1, 2, 0, 1 , Gtk::SHRINK , Gtk::SHRINK);
+    infoGrp->attach( *Gtk::manage(new Gtk::Label("Error")) , 0, 1, 0, 1 , Gtk::SHRINK , Gtk::SHRINK);
+    infoGrp->attach( *Gtk::manage(new Gtk::Label("Path File")) , 1, 2, 0, 1 , Gtk::SHRINK , Gtk::SHRINK);
+    infoGrp->attach( *Gtk::manage(new Gtk::Label("Path Link")) , 2,3, 0, 1 , Gtk::SHRINK , Gtk::SHRINK);
+    infoGrp->attach( *Gtk::manage(new Gtk::Label("Create date")) , 3, 4, 0, 1 , Gtk::SHRINK , Gtk::SHRINK);
+    infoGrp->attach( *Gtk::manage(new Gtk::Label("Modif Date")) , 4, 5, 0, 1 , Gtk::SHRINK , Gtk::SHRINK);
+    infoGrp->attach( *Gtk::manage(new Gtk::Label("Author")) , 5, 6, 0, 1 , Gtk::SHRINK , Gtk::SHRINK);
+    infoGrp->attach( *Gtk::manage(new Gtk::Label("Version")) , 6, 7, 0, 1 , Gtk::SHRINK , Gtk::SHRINK);
+    infoGrp->attach( *Gtk::manage(new Gtk::Label("Part")) , 7, 8, 0, 1 , Gtk::SHRINK , Gtk::SHRINK);
 
-    infoGrp->attach( this->m_grpInfoPath , 0, 1, 1, 2 ,Gtk::SHRINK , Gtk::SHRINK);
-    infoGrp->attach( this->m_grpInfoError ,1, 2, 1, 2 ,Gtk::SHRINK , Gtk::SHRINK);
+    infoGrp->attach( this->m_grpInfoError , 0, 1, 1, 2 ,Gtk::SHRINK , Gtk::SHRINK);
+    infoGrp->attach( this->m_grpInfoPath ,1, 2, 1, 2 ,Gtk::SHRINK , Gtk::SHRINK);
+    infoGrp->attach( this->m_grpInfoPathLink ,2, 3, 1, 2 ,Gtk::SHRINK , Gtk::SHRINK);
+    infoGrp->attach( this->m_grpInfoDateCreate ,3, 4, 1, 2 ,Gtk::SHRINK , Gtk::SHRINK);
+    infoGrp->attach( this->m_grpInfoDateModif ,4, 5, 1, 2 ,Gtk::SHRINK , Gtk::SHRINK);
+    infoGrp->attach( this->m_grpInfoAutor ,5, 6, 1, 2 ,Gtk::SHRINK , Gtk::SHRINK);
+    infoGrp->attach( this->m_grpInfoVersion ,6, 7, 1, 2 ,Gtk::SHRINK , Gtk::SHRINK);
+    infoGrp->attach( this->m_grpInfoPart ,7, 8, 1, 2 ,Gtk::SHRINK , Gtk::SHRINK);
+
 
     Gtk::ScrolledWindow *sw2 =Gtk::manage(new Gtk::ScrolledWindow());
     sw2->set_policy(Gtk::PolicyType::POLICY_AUTOMATIC, Gtk::PolicyType::POLICY_AUTOMATIC);
@@ -401,36 +437,48 @@ void VersionShower::update_view( void)
     //recré les enfant gtkmm au rapport au groupe actuels
     for(GrpVersion & grp : *this)
     {
-        auto bp = Gtk::manage(new Gtk::Button(  grp.get_id() , Gtk::PACK_SHRINK ));
-
-        bp->signal_clicked().connect(sigc::bind<GrpVersion>(sigc::mem_fun(*this,&VersionShower::on_clic), grp));
-
-        bp->get_style_context()->add_class( "VersionShowerButtonId" );
-        bp->get_style_context()->add_class( "Button" );
-
-        if( grp.inError() )
+        try
         {
-            bp->get_style_context()->add_class( "VersionShowerButtonIdKo" );
+            auto bp = Gtk::manage(new Gtk::Button(  grp.get_id() , Gtk::PACK_SHRINK ));
+
+            bp->signal_clicked().connect(sigc::bind<GrpVersion>(sigc::mem_fun(*this,&VersionShower::on_clic), grp));
+
+            bp->get_style_context()->add_class( "VersionShowerButtonId" );
+            bp->get_style_context()->add_class( "Button" );
+
+            if( grp.inError() )
+            {
+                bp->get_style_context()->add_class( "VersionShowerButtonIdKo" );
+            }
+            else
+            {
+                bp->get_style_context()->add_class( "VersionShowerButtonIdOk" );
+            }
+            
+            bp->get_style_context()->add_provider( this->atCssProvider() , GTK_STYLE_PROVIDER_PRIORITY_USER);
+
+            this->id.pack_start(*bp,Gtk::PACK_SHRINK);
+
+
+            auto lab2 = Gtk::manage(new Gtk::Button( utilitys::ss_cast<size_t , std::string>( grp.size() ) , Gtk::PACK_SHRINK ));
+
+            lab2->get_style_context()->add_class( "VersionShowerButtonOccur" );
+            lab2->get_style_context()->add_class( "Button" );
+            lab2->get_style_context()->add_provider( this->atCssProvider() , GTK_STYLE_PROVIDER_PRIORITY_USER);
+
+            lab2->signal_clicked().connect(sigc::bind<GrpVersion>(sigc::mem_fun(*this,&VersionShower::on_clic), grp));
+            lab2->signal_clicked().connect(  sigc::mem_fun(this->m_dialogInfoGrp ,&DialogThread::show_all)  );
+            this->nb_occur.pack_start(*lab2,Gtk::PACK_SHRINK);
         }
-        else
+        catch(const std::exception& e)
         {
-            bp->get_style_context()->add_class( "VersionShowerButtonIdOk" );
+            const LogicExceptionDialog er(e.what());
+            er.show();
+
+            continue;
         }
         
-        bp->get_style_context()->add_provider( this->atCssProvider() , GTK_STYLE_PROVIDER_PRIORITY_USER);
-
-        this->id.pack_start(*bp,Gtk::PACK_SHRINK);
-
-
-        auto lab2 = Gtk::manage(new Gtk::Button( utilitys::ss_cast<size_t , std::string>( grp.size() ) , Gtk::PACK_SHRINK ));
-
-        lab2->get_style_context()->add_class( "VersionShowerButtonOccur" );
-        lab2->get_style_context()->add_class( "Button" );
-        lab2->get_style_context()->add_provider( this->atCssProvider() , GTK_STYLE_PROVIDER_PRIORITY_USER);
-
-        lab2->signal_clicked().connect(sigc::bind<GrpVersion>(sigc::mem_fun(*this,&VersionShower::on_clic), grp));
-        lab2->signal_clicked().connect(  sigc::mem_fun(this->m_dialogInfoGrp ,&DialogThread::show_all)  );
-        this->nb_occur.pack_start(*lab2,Gtk::PACK_SHRINK);
+       
     }
 
 
@@ -445,6 +493,10 @@ void VersionShower::on_clic(GrpVersion _cpy)
     //deja un signal en cour
     if(this->m_onclickLock)
         return ;
+
+    const auto start{std::chrono::steady_clock::now()};
+
+    this->m_auth_updatePath = false;
 
     this->m_onclickLock = true;
     this->m_current_sel = _cpy;
@@ -497,21 +549,21 @@ void VersionShower::on_clic(GrpVersion _cpy)
 
     for( const auto & vers : _cpy)
     {
-        if(  vers.extension.size() > 0 ) 
+        if(  vers.get_ext().size() > 0 ) 
         {   
             bool found = false;
 
             for(const auto & str : tmp)
             {
-                if(str == vers.extension  )
+                if(str == vers.get_ext()  )
                 {
                     found = true ;
                     break;
                 }
             }
 
-            if(!found && !vers.get_error())
-                tmp.emplace_back( vers.extension );
+            if(!found)
+                tmp.emplace_back( vers.get_ext() );
         }
     }
 
@@ -545,7 +597,7 @@ void VersionShower::on_clic(GrpVersion _cpy)
                 }
             }
 
-            if(!found && !vers.get_error())
+            if(!found  )
                 tmp.emplace_back( vers.version );
         }
     }
@@ -556,7 +608,9 @@ void VersionShower::on_clic(GrpVersion _cpy)
      
     if(tmp.size() > 0)
     {
-        this->m_version_sel.set_active_text( tmp.back() );
+        std::sort(tmp.rbegin(), tmp.rend());
+
+        this->m_version_sel.set_active_text( tmp.front() );
         tmp.clear();
     }
     
@@ -577,7 +631,7 @@ void VersionShower::on_clic(GrpVersion _cpy)
                 }
             }
 
-            if(!found && !vers.get_error())
+            if(!found )
                 tmp.emplace_back( vers.part );
         }
     }
@@ -589,43 +643,130 @@ void VersionShower::on_clic(GrpVersion _cpy)
 
     if(tmp.size() > 0)
     {
+        std::sort(tmp.rbegin(), tmp.rend());
+
         this->m_part_sel.set_active_text( tmp.back() );
         tmp.clear();
     }
     
 
     //completel'infobare
-    
 
-    this->m_autor.set_label( _cpy.get_autor() );
-    this->m_createDate.set_label( _cpy.get_createDate() );
-    this->m_modifDate.set_label( _cpy.get_createDate() );
-
+    this->m_auth_updatePath = true;
 
     this->update_complet_path();
 
+
     utilitys::gtkmmRemoveChilds(this->m_grpInfoPath);
     utilitys::gtkmmRemoveChilds(this->m_grpInfoError);
+    utilitys::gtkmmRemoveChilds(this->m_grpInfoPathLink);
+    utilitys::gtkmmRemoveChilds(this->m_grpInfoDateCreate);
+    utilitys::gtkmmRemoveChilds(this->m_grpInfoDateModif);
+    utilitys::gtkmmRemoveChilds(this->m_grpInfoAutor);
+    utilitys::gtkmmRemoveChilds(this->m_grpInfoPart);
+    utilitys::gtkmmRemoveChilds(this->m_grpInfoVersion);
 
     for(  auto & vers : this->m_current_sel)
     {
-        auto tmp1 =Gtk::manage( new Gtk::Button(*this->atMainPath()+"\\"+ vers.get_subPathFile()));
-
+       
+        auto tmp1 =Gtk::manage( new Gtk::Entry( ));
+        tmp1->set_text( vers.get_file());
+        tmp1->set_editable(false);
         tmp1->get_style_context()->add_class( "VersionShowerGrpInfoPath" );
+
+        if( vers.get_error() & Version::EF_ACCES ||  vers.get_error() & Version::EF_LNK || vers.get_error() & Version::EF_MD5)
+            tmp1->get_style_context()->add_class( "VersionShowerGrpKo" );
+
         tmp1->get_style_context()->add_provider( this->atCssProvider() , GTK_STYLE_PROVIDER_PRIORITY_USER);
 
         this->m_grpInfoPath.pack_start(*tmp1 ,Gtk::PACK_SHRINK);
 
-        auto tmp2 =Gtk::manage( new Gtk::Button( Version::VersionError(vers) ));
+        auto tmp2 =Gtk::manage( new Gtk::Button( ));
+
+        tmp2->set_label( Version::VersionError(vers) + (vers.is_lnk() ? Version::VersionError(*vers.ptr_lnk) : "") ) ;
 
         tmp2->get_style_context()->add_class( "VersionShowerGrpInfoError" );
         tmp2->get_style_context()->add_provider( this->atCssProvider() , GTK_STYLE_PROVIDER_PRIORITY_USER);
 
         this->m_grpInfoError.pack_start(*tmp2,Gtk::PACK_SHRINK);
+
+
+        auto tmp3 =Gtk::manage( new Gtk::Entry( ));
+        tmp3->set_text(vers.is_lnk() ? vers.ptr_lnk->get_file() : "");
+        tmp3->set_editable(false);
+
+        tmp3->get_style_context()->add_class( "VersionShowerGrpInfoPathLink" );
+
+        if(vers.is_lnk())
+            if( vers.ptr_lnk->get_error() & Version::EF_ACCES ||  vers.ptr_lnk->get_error() & Version::EF_LNK || vers.ptr_lnk->get_error() & Version::EF_MD5)
+                tmp3->get_style_context()->add_class( "VersionShowerGrpKo" );
+
+        tmp3->get_style_context()->add_provider( this->atCssProvider() , GTK_STYLE_PROVIDER_PRIORITY_USER);
+
+        this->m_grpInfoPathLink.pack_start(*tmp3,Gtk::PACK_SHRINK);
+
+
+        auto tmp4 =Gtk::manage( new Gtk::Button( vers.is_lnk() ? vers.ptr_lnk->createDate : vers.createDate ));
+
+        tmp4->get_style_context()->add_class( "VersionShowerGrpInfoCreateDate" );
+        if( vers.get_error() & Version::EF_CreateDate  )
+            tmp4->get_style_context()->add_class( "VersionShowerGrpKo" );
+        else if(vers.is_lnk())
+            if( vers.ptr_lnk->get_error() & Version::EF_CreateDate  )
+                tmp4->get_style_context()->add_class( "VersionShowerGrpKo" );
+        
+        tmp4->get_style_context()->add_provider( this->atCssProvider() , GTK_STYLE_PROVIDER_PRIORITY_USER);
+
+        this->m_grpInfoDateCreate.pack_start(*tmp4,Gtk::PACK_SHRINK);
+
+
+        auto tmp5 =Gtk::manage( new Gtk::Button( vers.is_lnk() ? vers.ptr_lnk->modifDate : vers.modifDate ));
+
+        tmp5->get_style_context()->add_class( "VersionShowerGrpInfoModifDate" );
+        if( vers.get_error() & Version::EF_ModifDate)
+            tmp5->get_style_context()->add_class( "VersionShowerGrpKo" );
+        else if(vers.is_lnk())
+            if( vers.ptr_lnk->get_error() & Version::EF_ModifDate  )
+                tmp5->get_style_context()->add_class( "VersionShowerGrpKo" );
+
+        tmp5->get_style_context()->add_provider( this->atCssProvider() , GTK_STYLE_PROVIDER_PRIORITY_USER);
+
+        this->m_grpInfoDateModif.pack_start(*tmp5,Gtk::PACK_SHRINK);
+
+
+        auto tmp6 =Gtk::manage( new Gtk::Button( vers.is_lnk() ? vers.ptr_lnk->autor : vers.autor ));
+
+        tmp6->get_style_context()->add_class( "VersionShowerGrpInfoAuthor" );
+        tmp6->get_style_context()->add_provider( this->atCssProvider() , GTK_STYLE_PROVIDER_PRIORITY_USER);
+
+        this->m_grpInfoAutor.pack_start(*tmp6,Gtk::PACK_SHRINK);
+
+
+        auto tmp7 =Gtk::manage( new Gtk::Button( vers.is_lnk() ? vers.ptr_lnk->part : vers.part ));
+
+        tmp7->get_style_context()->add_class( "VersionShowerGrpInfoPart" );
+        tmp7->get_style_context()->add_provider( this->atCssProvider() , GTK_STYLE_PROVIDER_PRIORITY_USER);
+
+        this->m_grpInfoPart.pack_start(*tmp7,Gtk::PACK_SHRINK);
+
+
+        auto tmp8 =Gtk::manage( new Gtk::Button( vers.is_lnk() ? vers.ptr_lnk->version : vers.version ));
+
+        tmp8->get_style_context()->add_class( "VersionShowerGrpInfoVersion" );
+        tmp8->get_style_context()->add_provider( this->atCssProvider() , GTK_STYLE_PROVIDER_PRIORITY_USER);
+
+        this->m_grpInfoVersion.pack_start(*tmp8,Gtk::PACK_SHRINK);
+
     }
 
 
     this->m_onclickLock = false;
+
+
+    const auto end{std::chrono::steady_clock::now()};
+    const std::chrono::duration<double> elapsed_seconds{end - start};
+
+    std::clog <<"succes selected in : " << elapsed_seconds.count() * 1000 << " ms" <<std::endl;
 
 }
 
@@ -633,19 +774,27 @@ void VersionShower::on_clic(GrpVersion _cpy)
 /// @param  
 void VersionShower::update_complet_path(void)
 {
+    if( !this->m_auth_updatePath )
+        return ;
+
+    
     for(auto & vers : this->m_current_sel)
     {
         
-        if( this->m_device_sel.get_active_text() == vers.device && "pdf" == vers.extension  && this->m_part_sel.get_active_text() == vers.part && this->m_version_sel.get_active_text() == vers.version)
+        if( this->m_device_sel.get_active_text() == vers.device && "pdf" == vers.get_ext()  && this->m_part_sel.get_active_text() == vers.part && this->m_version_sel.get_active_text() == vers.version)
         {   
             try
             {
                 //lit pdf et l'affiche 
                 if( vers.is_lnk())
-                    this->atPdfShower()->read_pdf( vers.ptr_lnk->get_subPathFile());
+                    this->atPdfShower()->read_pdf( vers.ptr_lnk->get_file());
                 else
-                    this->atPdfShower()->read_pdf(*this->atMainPath()+"\\"+ vers.get_subPathFile());
+                    this->atPdfShower()->read_pdf( vers.get_file());
                 this->atPdfShower()->show_all();
+            }
+            catch( LogicExceptionDialog const & e)
+            {
+                e.show();
             }
             catch(const std::exception& e)
             {
@@ -655,12 +804,26 @@ void VersionShower::update_complet_path(void)
         }
 
         ///remlpis le chemin compelt
-        if( this->m_device_sel.get_active_text() == vers.device && this->m_ext_sel.get_active_text() == vers.extension  && this->m_part_sel.get_active_text() == vers.part && this->m_version_sel.get_active_text() == vers.version)
+        if( this->m_device_sel.get_active_text() == vers.device && this->m_ext_sel.get_active_text() == vers.get_ext()  && this->m_part_sel.get_active_text() == vers.part && this->m_version_sel.get_active_text() == vers.version)
         {
+            
             if( vers.is_lnk())
-                this->m_complet_path.set_text(vers.ptr_lnk->get_subPathFile());
+            {
+                this->m_complet_path.set_text(vers.ptr_lnk->get_file());
+
+                this->m_autor.set_label(vers.ptr_lnk->autor );
+                this->m_createDate.set_label( vers.ptr_lnk->createDate );
+                this->m_modifDate.set_label( vers.ptr_lnk->modifDate );
+            } 
             else
-                this->m_complet_path.set_text(*this->atMainPath()+"\\"+ vers.get_subPathFile());
+            {
+                this->m_complet_path.set_text( vers.get_file());
+
+                this->m_autor.set_label(vers.autor );
+                this->m_createDate.set_label( vers.createDate );
+                this->m_modifDate.set_label( vers.modifDate );
+            }
+                
 
             return ;
         
@@ -669,6 +832,10 @@ void VersionShower::update_complet_path(void)
 
     //remet a vide le champs si rien de trouver
     this->m_complet_path.set_text("");
+
+    this->m_autor.set_label( "" );
+    this->m_createDate.set_label( "");
+    this->m_modifDate.set_label( "" );
 }
 
 
@@ -777,7 +944,7 @@ class Prompt  :  public TemplateGui , public Gtk::VBox
 
         int findDualChar(std::string const & line , const char c1 , const char c2);
 
-        void update_th( std::vector< std::string >::iterator const & _beg , std::vector< std::string >::iterator const & _end , std::vector<std::string > const & lsAtIgnor , std::vector<std::string > & files) ; 
+        void update_th( std::vector< std::string >::iterator const & _beg , std::vector< std::string >::iterator const & _end , std::vector<std::string > const & lsAtIgnor , std::vector< File > & files) ; 
         void showgrp_th( std::vector< std::string >::iterator const & _beg , std::vector< std::string >::iterator const & _end , std::vector<std::string > const & lsAtIgnor ) ; 
         void update_showgrp_th( std::vector< VContainer >::iterator const & _beg , std::vector< VContainer >::iterator const & _end);
 
@@ -862,7 +1029,7 @@ void Prompt::helpSignal(void)
 /// @param _end pointeur de fin
 /// @param lsAtIgnor liste a ignoré
 /// @param files liste de fichieir a traité
-void Prompt::update_th( std::vector< std::string >::iterator const & _beg , std::vector< std::string >::iterator const & _end , std::vector<std::string > const & lsAtIgnor , std::vector<std::string > & files)
+void Prompt::update_th( std::vector< std::string >::iterator const & _beg , std::vector< std::string >::iterator const & _end , std::vector<std::string > const & lsAtIgnor , std::vector< File > & files)
 {
     for(auto lsDev = _beg ; lsDev!= _end ; lsDev++)
     {
@@ -962,16 +1129,47 @@ void Prompt::update_showgrp_th( std::vector< VContainer >::iterator const & _beg
         {
             if(it +1 <  cont->atVersionShower()->end())
             {
+                std::string id1 = "";
+
+                try
+                {
+                   id1 = it->get_id();
+                }
+                catch(std::exception const & e)
+                {
+                   auto tmpIt = it;
+                   it= it-1;
+
+                   cont->atVersionShower()->erase(tmpIt);
+                   
+                   const LogicExceptionDialog er( std::string(e.what()) + " merging grp ignored and error grp erase");
+
+                   continue;
+                }
+
+
                 for( auto it2 = it+1 ; it2 != cont->atVersionShower()->end() ; it2++ )
                 {
-                    if( it->get_id() == it2->get_id() )
+                    try
                     {
-                        //fusionne les groupes
-                        it->merge(*it2);
-                        it=cont->atVersionShower()->begin()-1;
-                        cont->atVersionShower()->erase(it2);
-                        break;
+                        if( id1 == it2->get_id() )
+                        {
+                            //fusionne les groupes
+                            it->merge(*it2);
+                            it=cont->atVersionShower()->begin()-1;
+                            cont->atVersionShower()->erase(it2);
+                            break;
+                        }
                     }
+                    catch(std::exception const & e)
+                    {
+                        std::cerr << e.what() << " merging grp ignored and error grp erase"<<std::endl;
+
+                        cont->atVersionShower()->erase(it2);
+
+                        continue;
+                    }
+                   
                 } 
             }
         }
@@ -1020,9 +1218,18 @@ void Prompt::enterSignal(void)
     }
 
 
-    std::vector<std::string> files ;
+    std::vector< File > files ;
     // Utiliser la fonction récursive pour lister l'enseble des fichiers du repertoir
-    utilitys::listerFichiers(*this->atMainPath(), files);
+
+    try
+    {
+        utilitys::listerFichiers(*this->atMainPath(), files);
+    }
+    catch(std::exception const & _e)
+    {
+        files.clear();
+        const LogicExceptionDialog er(_e.what());
+    }
 
 
     //update

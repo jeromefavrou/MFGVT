@@ -1,3 +1,13 @@
+/*
+                    GNU GENERAL PUBLIC LICENSE
+                       Version 3, 29 June 2007
+
+ Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>
+ Everyone is permitted to copy and distribute verbatim copies
+ of this license document, but changing it is not allowed.
+*/
+
+
 #ifndef __DEVICE_HPP__
 #define __DEVICE_HPP__
 
@@ -19,7 +29,7 @@ class Device  : public utilitys::MainPathSharedTemplate
 
         std::vector<VContainer> & get_containers(void);
         const std::string get_name(void)const;
-        void update(   std::vector<std::string> & _files,bool _forceUpdate = false , unsigned int _n_thread = 0);
+        void update(   std::vector< File > & _files,bool _forceUpdate = false , unsigned int _n_thread = 0);
 
         typedef std::shared_ptr< std::vector<Device> > ptrVecDevice;
 
@@ -35,8 +45,11 @@ class Device  : public utilitys::MainPathSharedTemplate
 
         std::mutex m_mutex;
 
-        void findDevice_th( const std::vector<std::string>::iterator & _beg , const std::vector<std::string>::iterator & _end,  std::vector<std::string> & _out );
-        void container_init_th(  const std::vector<VContainer>::iterator & _beg , const std::vector<VContainer>::iterator & _end , const std::vector<std::string> & pathDevice );
+        void findDevice_th( const std::vector<File>::iterator & _beg , const std::vector<File>::iterator & _end,  std::vector<File> & _out );
+        void container_init_th(  const std::vector<VContainer>::iterator & _beg , const std::vector<VContainer>::iterator & _end , const std::vector<File> & pathDevice );
+
+        void add2Container( File const & _in , VContainer & _out );
+
 };
 
 typedef std::shared_ptr<std::vector<Device>> ptrVecDevice;
@@ -103,18 +116,19 @@ const std::string Device::get_name(void)const
 /// @param _beg debut de list d'entré
 /// @param _end fin de liste d'entré
 /// @param _out list de sous chemin chemin
-void Device::findDevice_th( const std::vector<std::string>::iterator & _beg , const std::vector<std::string>::iterator & _end,  std::vector<std::string> & _out )
+void Device::findDevice_th( const std::vector<File>::iterator & _beg , const std::vector<File>::iterator & _end,  std::vector<File> & _out )
 {
     for(auto f = _beg ; f != _end ; f++)
     {
-        auto tmp = utilitys::sep_sub_and_name( *f );
+        
+        auto tmp = File::sep_sub_and_name( f->get_file() );
         
         bool found =false;
         //! ici on cherche u materiel
         
         while ( std::get<0>(tmp).size() > 0)
         {
-            tmp = utilitys::sep_sub_and_name( std::get<0>(tmp) );
+         tmp = File::sep_sub_and_name( std::get<0>(tmp) );
 
             std::string tmpName = std::get<1>(tmp);
             utilitys::upper(tmpName);
@@ -128,22 +142,71 @@ void Device::findDevice_th( const std::vector<std::string>::iterator & _beg , co
         
         if( found )
         {
-                this->m_mutex.lock();
+            this->m_mutex.lock();
 
-                _out.push_back( f->substr( this->atMainPath()->size() , f->size()) );
-                
-                //supprime la racine si presente
-                if(_out.back().front() == '/' || _out.back().front() == '\\')
-                    _out.back().erase(_out.back().begin());
+            _out.emplace_back( f->get_file() );
+            _out.back().get_ptr_lnk() = f->get_ptr_lnk();
 
-                this->m_mutex.unlock();
+            this->m_mutex.unlock();
         }
            
     }
 }
 
 
-void Device::container_init_th(  const std::vector< VContainer >::iterator & _beg , const std::vector< VContainer >::iterator & _end , const std::vector<std::string> & pathDevice)
+/// @brief ajoute au groupe la version a qui est de meme contenair que attendu
+///la fonction appel par recursivité si un lien symbolique est trouver et que c'est un repertoir
+void Device::add2Container( File const & _in , VContainer & _out )
+{
+    ///lien d'un repertoir , recurcivité sour les enfant
+    if( _in.get_lnk()->size() > 1 )
+    {
+        for( auto & sym : *_in.get_lnk())
+            this->add2Container( sym , _out );
+        
+
+        return ;
+    }
+
+    Version tmp = static_cast<Version>(_in);
+
+    tmp.device = this->m_name;
+    
+    tmp.id = utilitys::regSearch( _out.get_reg_id() , tmp.get_name());
+    
+    if(tmp.id.size() == 0)
+        tmp.id = tmp.get_name();
+
+    tmp.autor =  std::move(utilitys::regSearch( _out.get_reg_autor() , tmp.get_name()));
+    tmp.part =  std::move(utilitys::regSearch( _out.get_reg_part() , tmp.get_name()));
+    tmp.version =  std::move(utilitys::regSearch( _out.get_reg_version() , tmp.get_name()));
+
+    tmp.update_dates();
+    
+    if( _in.is_symLnk() )
+    {
+        tmp.createLnkVersion();
+
+        if( tmp.is_lnk() )
+        {
+            tmp.ptr_lnk->id = utilitys::regSearch( _out.get_reg_id() , tmp.ptr_lnk->get_name());
+            
+            if(tmp.ptr_lnk->id.size() == 0)
+                tmp.ptr_lnk->id = tmp.ptr_lnk->get_name();
+
+            tmp.ptr_lnk->autor =  std::move(utilitys::regSearch( _out.get_reg_autor() , tmp.ptr_lnk->get_name()));
+            tmp.ptr_lnk->part =  std::move(utilitys::regSearch( _out.get_reg_part() , tmp.ptr_lnk->get_name()));
+            tmp.ptr_lnk->version =  std::move(utilitys::regSearch( _out.get_reg_version() , tmp.ptr_lnk->get_name()));
+
+            tmp.ptr_lnk->update_dates();
+        }
+    }
+
+    _out.add2GrpVersion( std::move(tmp) );
+}
+
+/// @brief met a jour les conteneur fonction threadable
+void Device::container_init_th(  const std::vector< VContainer >::iterator & _beg , const std::vector< VContainer >::iterator & _end , const std::vector< File > & pathDevice)
 {
     for(auto  c = _beg ; c != _end ; c++)
     {
@@ -151,73 +214,18 @@ void Device::container_init_th(  const std::vector< VContainer >::iterator & _be
 
         for(const auto &  pd : pathDevice)
         {
-            std::string tmpStr = pd;
+            std::string tmpStr = pd.get_file();
 
             utilitys::upper(tmpStr);
             auto found = tmpStr.find( c->get_name() );
 
-            if( found!=std::string::npos)
-            {
-                
-                auto pathName = utilitys::sep_sub_and_name(pd);
-                auto nameExt = utilitys::sep_name_and_ext(std::get<1>(pathName));
-                
-                //ajoute si l'extension est supporté
-                if( c->get_authExt().find( std::get<1>(nameExt) ) != std::string::npos )
-                {
-                    Version tmp ;
+            //ajoute si l'extension est supporté et si le conteneur a ete trouvé
 
-                    tmp.device = this->m_name;
-                    tmp.dir = std::get<0>(pathName);
-                    
-                    tmp.name = std::get<0>(nameExt);
-                    tmp.id = utilitys::regSearch( c->get_reg_id() , tmp.name);
-                    
-                    if(tmp.id.size() == 0)
-                        tmp.id = tmp.name;
-
-                    tmp.autor =  std::move(utilitys::regSearch( c->get_reg_autor() , tmp.name));
-                    tmp.part =  std::move(utilitys::regSearch( c->get_reg_part() , tmp.name));
-                    tmp.version =  std::move(utilitys::regSearch( c->get_reg_version() , tmp.name));
-
-                    
-                    tmp.extension = std::get<1>(nameExt);
-
-                    tmp.update_dates(*this->atMainPath()+ "\\");
-                    
-                    if(tmp.extension == "lnk")
-                    {
-                        tmp.createLnkVersion(*this->atMainPath() + "\\");
-
-                        if( tmp.is_lnk() )
-                        {
-                            tmp.ptr_lnk->id = utilitys::regSearch( c->get_reg_id() , tmp.ptr_lnk->name);
-                            
-                            if(tmp.id.size() == 0)
-                                tmp.ptr_lnk->id = tmp.ptr_lnk->name;
-
-                            tmp.ptr_lnk->autor =  std::move(utilitys::regSearch( c->get_reg_autor() , tmp.ptr_lnk->name));
-                            tmp.ptr_lnk->part =  std::move(utilitys::regSearch( c->get_reg_part() , tmp.ptr_lnk->name));
-                            tmp.ptr_lnk->version =  std::move(utilitys::regSearch( c->get_reg_version() , tmp.ptr_lnk->name));
-
-                            tmp.ptr_lnk->update_dates();
-
-                            //met en errerur si lien sur un lien
-                            if(tmp.ptr_lnk->extension == "lnk")
-                            {
-                                tmp.ptr_lnk->add_error(Version::EF_LNK);
-                                tmp.add_error(Version::EF_LNK);
-                            }
-                                
-                        }
-                    }
-
-                    c->add2GrpVersion( std::move(tmp) );
-
-                }
-            }
+            if( found!=std::string::npos) 
+                if( c->get_authExt().find( pd.get_ext() ) != std::string::npos )
+                    this->add2Container( pd , *c );
+            
         } 
-
     }
 }
 
@@ -225,13 +233,13 @@ void Device::container_init_th(  const std::vector< VContainer >::iterator & _be
 /// @param _mainPath racine a scanné
 /// @param _files  tout les chemin fichier compatible
 /// @param _forceUpdate force la mise a jour si deja scanné
-void Device::update(  std::vector<std::string> & _files , bool _forceUpdate ,unsigned int _n_thread)
+void Device::update(  std::vector< File> & _files , bool _forceUpdate ,unsigned int _n_thread)
 {
 
     if( this->m_update && !_forceUpdate)
         return ;
         
-    std::vector<std::string>  pathDevice ;
+    std::vector< File > pathDevice ;
 
     utilitys::multi_thread_callback( std::bind(&Device::findDevice_th, this, std::placeholders::_1 , std::placeholders::_2 , std::ref(pathDevice)) , _files , _n_thread );
 

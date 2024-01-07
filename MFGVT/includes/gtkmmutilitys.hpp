@@ -1,14 +1,25 @@
+/*
+                    GNU GENERAL PUBLIC LICENSE
+                       Version 3, 29 June 2007
+
+ Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>
+ Everyone is permitted to copy and distribute verbatim copies
+ of this license document, but changing it is not allowed.
+*/
+
 #ifndef __GTKMMUTILITYS_HPP__
 #define __GTKMMUTILITYS_HPP__
 
 #include <string>
 #include <thread>
+#include <iostream>
 
 #include <gtkmm-3.0/gtkmm/hvbox.h>
 #include <gtkmm-3.0/gtkmm/label.h>
 #include <gtkmm-3.0/gtkmm/switch.h>
 #include <gtkmm-3.0/gtkmm/dialog.h>
 #include <glibmm-2.4/glibmm/dispatcher.h>
+#include <gtkmm-3.0/gtkmm/messagedialog.h>
 
 
 /// @brief cree un bouton de type switch avec sont label
@@ -88,9 +99,11 @@ class DialogThread : public Gtk::Dialog
 
       bool thread_func(void);
 
-       std::jthread m_th;
+       std::unique_ptr<std::jthread> m_th;
        std::atomic<bool> m_continue , m_end ;
        Glib::Dispatcher m_signalDone;
+
+       std::chrono::_V2::steady_clock::time_point m_start;
       
 };
 
@@ -101,6 +114,7 @@ DialogThread::DialogThread(void):Gtk::Dialog()
     this->m_signalDone.connect(sigc::mem_fun(this, &DialogThread::show_all));
     this->m_continue = false;
     this->m_end = false;
+    this->m_th = nullptr;
 }
 
 /// @brief arret de la fenetre et de son thread
@@ -114,26 +128,31 @@ DialogThread::~DialogThread(void)
 /// @param  
 void DialogThread::run(void)
 {
-    
-    if(this->m_continue || this->m_th.joinable())
+    std::chrono::duration<double> elapsed_seconds{std::chrono::steady_clock::now() - this->m_start};
+
+    if(this->m_continue || elapsed_seconds.count() < 500 )
         return ;
 
     this->m_end = false;
     this->m_continue = true;
-    this->m_th =  std::jthread(&DialogThread::thread_func, this);
+    this->m_th.reset(new std::jthread(&DialogThread::thread_func, this)) ;
 }
 
 /// @brief arret du thread
 /// @param  
 void DialogThread::stop(void)
 {
-    if(!this->m_continue)
+    if(!this->m_continue || !this->m_th )
         return;
     
     this->m_continue = false;
-    if(this->m_th.joinable())
-        this->m_th.join();
+    if(this->m_th->joinable())
+        this->m_th->join();
 
+    
+    this->m_th.reset();
+
+    this->m_start = std::chrono::steady_clock::now();
 }
 
 /// @brief routine du thread
@@ -141,7 +160,7 @@ void DialogThread::stop(void)
 /// @return 
 bool DialogThread::thread_func(void)
 {
-    while( this->m_continue )
+    while( this->m_continue || !this->m_th)
     {
         this->m_signalDone.emit();
 
@@ -159,5 +178,32 @@ bool DialogThread::thread_func(void)
     return true;
 }
 
+
+/// @brief permet d'aficher dans une fenetre d'erreur une exception logic
+class LogicExceptionDialog : public std::logic_error
+{
+    public : 
+        LogicExceptionDialog(std::string const & _msg);
+
+        void show(void) const;
+};
+
+
+LogicExceptionDialog::LogicExceptionDialog(std::string const & _msg) : std::logic_error(_msg)
+{
+    
+}
+
+void LogicExceptionDialog::show( void )const
+{
+
+    std::cerr << this->what() << std::endl;
+
+    Gtk::MessageDialog dialog( "Erreur");
+
+    dialog.set_secondary_text(this->what());
+
+    dialog.run();
+}
 
 #endif

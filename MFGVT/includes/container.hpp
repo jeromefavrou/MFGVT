@@ -1,3 +1,12 @@
+/*
+                    GNU GENERAL PUBLIC LICENSE
+                       Version 3, 29 June 2007
+
+ Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>
+ Everyone is permitted to copy and distribute verbatim copies
+ of this license document, but changing it is not allowed.
+*/
+
 #ifndef __CONTAINER_HPP__
 #define __CONTAINER_HPP__
 
@@ -49,6 +58,10 @@ class VContainer : public std::vector<GrpVersion>
 VContainer::VContainer( const std::string & _name): std::vector<GrpVersion>() ,  m_name(_name)
 {
     this->m_authext = "";
+    this->m_reg_version = "";
+    this->m_reg_autor= "";
+    this->m_reg_id= "";
+    this->m_reg_part= "";
 }
 
 /// @brief operateur de copy
@@ -128,13 +141,22 @@ const std::shared_ptr<VersionShower> & VContainer::atVersionShower(void)
 /// @param _v 
 void  VContainer::add2GrpVersion(const Version && _v)
 {
+    const Version * tmp1  = _v.is_lnk() ?_v.ptr_lnk.get() :  &_v;
     for(auto & grp : *this)
     {
-        if(grp.get_id() == _v.id)
+        try
         {
-            grp.emplace_back( _v);
-            return ;
+            if(grp.get_id() == tmp1->id )
+            {
+                grp.emplace_back( _v);
+                return ;
+            }
         }
+        catch(const std::exception& e)
+        {
+            std::cerr << e.what() << '\n';
+        }
+        
     }
 
     GrpVersion tmp;

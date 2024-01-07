@@ -1,5 +1,18 @@
+/*
+                    GNU GENERAL PUBLIC LICENSE
+                       Version 3, 29 June 2007
+
+ Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>
+ Everyone is permitted to copy and distribute verbatim copies
+ of this license document, but changing it is not allowed.
+*/
+
+
+
 #ifndef __UTILITYS_HPP__
 #define __UTILITYS_HPP__
+
+
 
 
 #include <windows.h>
@@ -17,6 +30,8 @@
 #include <iostream>
 #include <regex>
 #include <functional>
+
+#include "../includes/file.hpp"
 
 #include <cryptopp/cryptlib.h>
 #include <cryptopp/sha.h>
@@ -148,50 +163,6 @@ namespace utilitys
     }
     //separe un path en sous path et nom
 
-    /// @brief sépare une chemin de fichier en chemin et nom de fichier
-    /// @param _str chemin a séparer
-    /// @return tuple de chaine str contenant le chemin <0> et le nom de fichier <1>
-    static std::tuple<std::string , std::string> sep_sub_and_name(std::string const & _str)
-    {
-        int idx = 0;
-
-        for(auto i = _str.size() ; i >= 0 ; i--)
-        {
-            if(_str[i] == '\\' || _str[i] == '/' )
-            {
-                idx = i ; 
-                break;
-            }
-        }
-
-        if( idx <= 0)
-            return {"" , _str};
-
-        return {_str.substr(0 , idx) , _str.substr(idx+1 , _str.size())};
-    }
-
-    /// @brief sépare une nom de fichier et son extention
-    /// @param _str 
-    /// @return tuple de str contenant les nom fichier <0> et son extension<1>
-    static std::tuple<std::string , std::string> sep_name_and_ext(std::string const & _str)
-    {
-        int idx = 0;
-
-        for(auto i = _str.size() ; i >= 0 ; i--)
-        {
-            if(_str[i] == '.' )
-            {
-                idx = i ; 
-                break;
-            }
-        }
-
-        if( idx <= 0)
-            return {_str , ""};
-
-        return {_str.substr(0 , idx) , _str.substr(idx+1 , _str.size())};
-    }
-
     /// @brief sépare une chaine str en 2 a l'aide du premier caratere cible trouvé
     /// @tparam _c caractere cible pour la séparation
     /// @param _str chaine a séparé
@@ -241,29 +212,79 @@ namespace utilitys
         
     }
 
+  
+
+    /// @brief retourn la cible d'un lien
+    /// @param _lnk 
+    /// @return 
+    static std::string get_targetOfLnk( std::string const & _lnk)
+    {
+        // Initialisation de la COM (Component Object Model)
+        CoInitialize(NULL);
+
+        // Interface pour accéder aux propriétés du raccourci
+        IShellLink* psl;
+        HRESULT hr = CoCreateInstance(CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER, IID_IShellLinkW, (LPVOID*)&psl);
+
+        if (SUCCEEDED(hr)) {
+            IPersistFile* ppf;
+            // Charge le raccourci
+            hr = psl->QueryInterface(IID_IPersistFile, (LPVOID*)&ppf);
+
+            if (SUCCEEDED(hr)) {
+                hr = ppf->Load( stringToWstring(_lnk).c_str() , STGM_READ);
+                
+                if (SUCCEEDED(hr)) {
+                    // Récupère le chemin de la cible
+                    wchar_t targetPath[MAX_PATH];
+                    hr = psl->GetPath((LPSTR)targetPath, MAX_PATH, NULL, SLGP_UNCPRIORITY);
+
+                    if (SUCCEEDED(hr)) 
+                    {
+                        return  wstringToString(targetPath) ;
+                    } 
+
+                } 
+
+                ppf->Release();
+            } 
+
+            psl->Release();
+        } 
+
+        // Libération de la COM
+        CoUninitialize();
+
+        return "";
+    }
 
     /// @brief liste tout les fichier d'un répertoir mais de maniere recursive
     /// @param chemin //Chemin vers du repertoir cible 
     /// @param fichiers //list a traité
-    static void listerFichiers(const std::filesystem::path& chemin, std::vector<std::string>& fichiers)
+    static void listerFichiers(const std::filesystem::path& chemin, std::vector<File>& fichiers)
     {
-        try
-        {
+
             for (const auto& entry : std::filesystem::directory_iterator(chemin))
             {
-                // Appel récursif pour traiter les sous-répertoires
+                // si repertoir , Appel récursif pour traiter les sous-répertoires
                 if (std::filesystem::is_directory(entry.status()))
                     listerFichiers(entry.path(), fichiers);
-                // Ajouter le fichier au vecteur
+
+                // si fichier  verification supplementaire
                 else if (std::filesystem::is_regular_file(entry.status()))
-                    fichiers.push_back(chemin.string() + "\\"+ entry.path().filename().string());
-                
+                {
+
+                    //on regarde si il ya un lien si oui regarde si 
+                    auto lnk = get_targetOfLnk(chemin.string() + "\\"+ entry.path().filename().string());
+                    
+                    fichiers.emplace_back(chemin.string() + "\\"+ entry.path().filename().string());
+
+                    if(lnk.size() > 0 && std::filesystem::is_directory( std::filesystem::status(lnk) ))
+                        listerFichiers( lnk , *fichiers.back().get_lnk() );
+                    else if(lnk.size() > 0)
+                        fichiers.back().get_lnk()->push_back(lnk);
+                }
             }
-        }
-        catch (const std::exception& e)
-        {
-            std::cerr << "Erreur : " << e.what() << std::endl;
-        }
     }
 
     /// @brief lit l'enseble des ligne d'un fichier et stock dans un vecteur
@@ -432,7 +453,7 @@ namespace utilitys
         std::shared_ptr<const std::string> m_mainPath;
     };
 
-    MainPathSharedTemplate::MainPathSharedTemplate(void){}
+    MainPathSharedTemplate::MainPathSharedTemplate(void){this->m_mainPath = nullptr;}
     MainPathSharedTemplate::~MainPathSharedTemplate(void){}
     //setter
     void MainPathSharedTemplate::addMainPath(std::shared_ptr<const std::string> _mainPath)
@@ -474,15 +495,7 @@ namespace utilitys
 
             if( divider == 0)
             {
-                if( _n_thread  >= 4)
-                {
-                    divider = _dispatch_ref.size() / (_n_thread /2);
-                    
-                    if(divider == 0)
-                        full();
-                }  
-                else
-                    full();
+                multi_thread_callback(_func , _dispatch_ref , _n_thread - 1);
             }
             else
             {
@@ -517,50 +530,6 @@ namespace utilitys
         _ss_cast >> tps;
 
         return tps;
-    }
-
-    /// @brief retourn la cible d'un lien
-    /// @param _lnk 
-    /// @return 
-    static std::string get_targetOfLnk( std::string const & _lnk)
-    {
-        // Initialisation de la COM (Component Object Model)
-        CoInitialize(NULL);
-
-        // Interface pour accéder aux propriétés du raccourci
-        IShellLink* psl;
-        HRESULT hr = CoCreateInstance(CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER, IID_IShellLinkW, (LPVOID*)&psl);
-
-        if (SUCCEEDED(hr)) {
-            IPersistFile* ppf;
-            // Charge le raccourci
-            hr = psl->QueryInterface(IID_IPersistFile, (LPVOID*)&ppf);
-
-            if (SUCCEEDED(hr)) {
-                hr = ppf->Load( stringToWstring(_lnk).c_str() , STGM_READ);
-                
-                if (SUCCEEDED(hr)) {
-                    // Récupère le chemin de la cible
-                    wchar_t targetPath[MAX_PATH];
-                    hr = psl->GetPath((LPSTR)targetPath, MAX_PATH, NULL, SLGP_UNCPRIORITY);
-
-                    if (SUCCEEDED(hr)) 
-                    {
-                        return  wstringToString(targetPath) ;
-                    } 
-
-                } 
-
-                ppf->Release();
-            } 
-
-            psl->Release();
-        } 
-
-        // Libération de la COM
-        CoUninitialize();
-
-        return "";
     }
 
 };
