@@ -327,9 +327,9 @@ VersionShower::VersionShower(void):TemplateGui(),Gtk::VBox()
 
     Gtk::Table *infoBare = Gtk::manage(new Gtk::Table( 2  , 3 ));
 
-    infoBare->attach( *Gtk::manage(new Gtk::Label("creatDate")) , 0, 1, 0, 1 );
-    infoBare->attach(  *Gtk::manage(new Gtk::Label("modif date")), 1, 2, 0, 1 ); 
-    infoBare->attach(  *Gtk::manage(new Gtk::Label("autor")), 2, 3, 0, 1 ); 
+    infoBare->attach( *Gtk::manage(new Gtk::Label("Date of creation")) , 0, 1, 0, 1 );
+    infoBare->attach(  *Gtk::manage(new Gtk::Label("Date of change")), 1, 2, 0, 1 ); 
+    infoBare->attach(  *Gtk::manage(new Gtk::Label("Author")), 2, 3, 0, 1 ); 
 
     infoBare->attach(this->m_createDate , 0, 1, 1, 2 );
     infoBare->attach( this->m_modifDate, 1, 2, 1, 2 ); 
@@ -354,8 +354,8 @@ VersionShower::VersionShower(void):TemplateGui(),Gtk::VBox()
     infoGrp->attach( *Gtk::manage(new Gtk::Label("Error")) , 0, 1, 0, 1 , Gtk::SHRINK , Gtk::SHRINK);
     infoGrp->attach( *Gtk::manage(new Gtk::Label("Path File")) , 1, 2, 0, 1 , Gtk::SHRINK , Gtk::SHRINK);
     infoGrp->attach( *Gtk::manage(new Gtk::Label("Path Link")) , 2,3, 0, 1 , Gtk::SHRINK , Gtk::SHRINK);
-    infoGrp->attach( *Gtk::manage(new Gtk::Label("Create date")) , 3, 4, 0, 1 , Gtk::SHRINK , Gtk::SHRINK);
-    infoGrp->attach( *Gtk::manage(new Gtk::Label("Modif Date")) , 4, 5, 0, 1 , Gtk::SHRINK , Gtk::SHRINK);
+    infoGrp->attach( *Gtk::manage(new Gtk::Label("Date of creation")) , 3, 4, 0, 1 , Gtk::SHRINK , Gtk::SHRINK);
+    infoGrp->attach( *Gtk::manage(new Gtk::Label("Date of change")) , 4, 5, 0, 1 , Gtk::SHRINK , Gtk::SHRINK);
     infoGrp->attach( *Gtk::manage(new Gtk::Label("Author")) , 5, 6, 0, 1 , Gtk::SHRINK , Gtk::SHRINK);
     infoGrp->attach( *Gtk::manage(new Gtk::Label("Version")) , 6, 7, 0, 1 , Gtk::SHRINK , Gtk::SHRINK);
     infoGrp->attach( *Gtk::manage(new Gtk::Label("Part")) , 7, 8, 0, 1 , Gtk::SHRINK , Gtk::SHRINK);
@@ -549,13 +549,15 @@ void VersionShower::on_clic(GrpVersion _cpy)
 
     for( const auto & vers : _cpy)
     {
-        if(  vers.get_ext().size() > 0 ) 
+        auto tmpvers = vers.is_lnk() ? vers.ptr_lnk.get() : &vers;
+
+        if(  tmpvers->get_ext().size() > 0 ) 
         {   
             bool found = false;
 
             for(const auto & str : tmp)
             {
-                if(str == vers.get_ext()  )
+                if(str == tmpvers->get_ext()  )
                 {
                     found = true ;
                     break;
@@ -563,7 +565,7 @@ void VersionShower::on_clic(GrpVersion _cpy)
             }
 
             if(!found)
-                tmp.emplace_back( vers.get_ext() );
+                tmp.emplace_back( tmpvers->get_ext() );
         }
     }
 
@@ -585,12 +587,14 @@ void VersionShower::on_clic(GrpVersion _cpy)
     this->m_version_sel.remove_all();
     for( const auto & vers : _cpy)
     {
-        if(  vers.version.size() > 0 ) 
+        auto tmpvers = vers.is_lnk() ? vers.ptr_lnk.get() : &vers;
+
+        if(  tmpvers->version.size() > 0 ) 
         {
             bool found = false;
             for(const auto & str : tmp)
             {
-                if(str == vers.version)
+                if(str == tmpvers->version)
                 {
                     found = true ;
                     break;
@@ -598,7 +602,7 @@ void VersionShower::on_clic(GrpVersion _cpy)
             }
 
             if(!found  )
-                tmp.emplace_back( vers.version );
+                tmp.emplace_back( tmpvers->version );
         }
     }
 
@@ -619,12 +623,14 @@ void VersionShower::on_clic(GrpVersion _cpy)
     this->m_part_sel.remove_all();
     for( const auto & vers : _cpy)
     {
-        if(  vers.part.size() > 0 ) 
+        auto tmpvers = vers.is_lnk() ? vers.ptr_lnk.get() : &vers;
+
+        if(  tmpvers->part.size() > 0 ) 
         {
             bool found = false;
             for(const auto & str : tmp)
             {
-                if(str == vers.part)
+                if(str == tmpvers->part)
                 {
                     found = true ;
                     break;
@@ -632,7 +638,7 @@ void VersionShower::on_clic(GrpVersion _cpy)
             }
 
             if(!found )
-                tmp.emplace_back( vers.part );
+                tmp.emplace_back( tmpvers->part );
         }
     }
 
@@ -780,16 +786,15 @@ void VersionShower::update_complet_path(void)
     
     for(auto & vers : this->m_current_sel)
     {
-        
-        if( this->m_device_sel.get_active_text() == vers.device && "pdf" == vers.get_ext()  && this->m_part_sel.get_active_text() == vers.part && this->m_version_sel.get_active_text() == vers.version)
+        auto tmpvers = vers.is_lnk() ? vers.ptr_lnk.get() : &vers;
+        if( this->m_device_sel.get_active_text() == tmpvers->device && "pdf" == tmpvers->get_ext()  && this->m_part_sel.get_active_text() == tmpvers->part && this->m_version_sel.get_active_text() == tmpvers->version)
         {   
             try
             {
                 //lit pdf et l'affiche 
-                if( vers.is_lnk())
-                    this->atPdfShower()->read_pdf( vers.ptr_lnk->get_file());
-                else
-                    this->atPdfShower()->read_pdf( vers.get_file());
+                
+                this->atPdfShower()->read_pdf( tmpvers->get_file());
+
                 this->atPdfShower()->show_all();
             }
             catch( LogicExceptionDialog const & e)
@@ -804,29 +809,16 @@ void VersionShower::update_complet_path(void)
         }
 
         ///remlpis le chemin compelt
-        if( this->m_device_sel.get_active_text() == vers.device && this->m_ext_sel.get_active_text() == vers.get_ext()  && this->m_part_sel.get_active_text() == vers.part && this->m_version_sel.get_active_text() == vers.version)
+        if( this->m_device_sel.get_active_text() == tmpvers->device && this->m_ext_sel.get_active_text() == tmpvers->get_ext()  && this->m_part_sel.get_active_text() == tmpvers->part && this->m_version_sel.get_active_text() == tmpvers->version)
         {
             
-            if( vers.is_lnk())
-            {
-                this->m_complet_path.set_text(vers.ptr_lnk->get_file());
+            this->m_complet_path.set_text( tmpvers->get_file());
 
-                this->m_autor.set_label(vers.ptr_lnk->autor );
-                this->m_createDate.set_label( vers.ptr_lnk->createDate );
-                this->m_modifDate.set_label( vers.ptr_lnk->modifDate );
-            } 
-            else
-            {
-                this->m_complet_path.set_text( vers.get_file());
-
-                this->m_autor.set_label(vers.autor );
-                this->m_createDate.set_label( vers.createDate );
-                this->m_modifDate.set_label( vers.modifDate );
-            }
-                
-
+            this->m_autor.set_label(tmpvers->autor );
+            this->m_createDate.set_label( tmpvers->createDate );
+            this->m_modifDate.set_label( tmpvers->modifDate );
+            
             return ;
-        
         }
     }
 
@@ -1355,6 +1347,142 @@ void Prompt::completionList(void)
 }
 
 
+/// @brief gestion de la fenetre principa
+class WindowMain : public Gtk::Window , public TemplateGui
+{
+    public:
 
+        WindowMain( const std::string & _absPath );
+
+        void init(void);
+        const std::string get_ressourcePath(void)const;
+        
+    protected :
+
+    private:
+
+        Gtk::HPaned m_utilitysPanel;
+        Gtk::VBox m_usersPanel;
+        Gtk::Notebook m_nbk;
+        Prompt m_prompt;
+
+        std::string m_absPath , m_ressourcePath;
+
+        Glib::RefPtr< Gtk::Adjustment > m_vadj , m_hadj ;
+
+};
+
+/// @brief 
+/// @param _absPath 
+WindowMain::WindowMain(const std::string & _absPath) : Gtk::Window() , TemplateGui() 
+{
+    this->m_absPath = _absPath;
+    this->m_parent = this;
+    //this->addMainPath( std::shared_ptr< const std::string >(new const std::string(_mainPath)) );
+
+    auto && path = utilitys::readList(this->m_absPath + "\\ressourcePath.csv" , false);
+
+    if( path.size() == 0 )
+         throw std::logic_error("no ressourcePath found");
+
+    this->m_ressourcePath = path.front();
+}
+
+const std::string WindowMain::get_ressourcePath(void)const
+{
+    return this->m_ressourcePath;
+}
+
+void WindowMain::init(void)
+{
+    this->m_prompt.addDevice(this->m_devices);
+    this->m_prompt.addMainPath( this->atMainPath() );
+
+    
+    try
+    {
+       this->set_icon_from_file(  this->m_ressourcePath+ "\\version-control-lrg.png");
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr << e.what() << '\n';
+    }
+    catch(Gdk::PixbufError & e)
+    {
+        std::cerr << e.what() << '\n';
+    }
+    
+    
+
+    this->unfullscreen();
+	this->set_position(Gtk::WIN_POS_CENTER);
+	this->resize(1200, 480);
+    this->maximize();
+
+    this->addCssProvider( Gtk::CssProvider::create() );
+    this->m_prompt.addCssProvider( this->atCssProvider() );
+
+    //chargement du fichier css
+
+    std::string const cssFile =  this->m_ressourcePath + "\\style.css" ;
+
+    try
+    {
+        this->atCssProvider()->load_from_path( cssFile );
+    }
+    catch(Gtk::CssProviderError const & e)
+    {
+        const LogicExceptionDialog er(cssFile + " cannot be load : " + e.what());
+        er.show();
+    }
+
+    //class pour fichier css
+    this->get_style_context()->add_class("windows");
+    this->m_utilitysPanel.get_style_context()->add_class("utilitysPanel");
+    this->m_usersPanel.get_style_context()->add_class("userPanel");
+
+    this->add(this->m_utilitysPanel);
+
+
+    this->m_utilitysPanel.pack1( this->m_usersPanel , Gtk::SHRINK );
+    
+
+    this->m_pdfS = std::shared_ptr<PdfShower>( new PdfShower() );
+
+    this->m_prompt.addPdfShower( this->m_pdfS );
+
+
+    this->m_utilitysPanel.pack2( *this->m_pdfS , Gtk::FILL  );
+
+    this->m_usersPanel.pack_start(this->m_prompt  , Gtk::PACK_SHRINK);
+
+    if( this->atDevice()->size() > 0 )
+    {
+        for(auto & cont : this->atDevice()->front().get_containers() )
+        {
+            cont.addVersionShower( std::shared_ptr< VersionShower>( new VersionShower() ) ) ;
+            cont.atVersionShower()->addMainPath( this->atMainPath());
+            cont.atVersionShower()->addPdfShower( this->m_pdfS );
+            this->m_nbk.append_page( *cont.atVersionShower() ,  *Gtk::manage(new Gtk::Label( cont.get_name() )) );
+        }
+
+        //propage sur tout les device les poiteur shower
+        for(auto & dev : *this->atDevice() )
+        {
+            for(size_t i = 0 ; i < dev.get_containers().size() ; i++ )
+            {
+                dev.get_containers().at(i).addVersionShower( this->atDevice()->front().get_containers().at(i).atVersionShower() ) ;
+                dev.get_containers().at(i).atVersionShower()->addPdfShower( this->m_pdfS );
+
+                dev.get_containers().at(i).atVersionShower()->addCssProvider( this->getCssProvider());
+            }
+        }
+    }
+
+    this->m_nbk.set_scrollable();
+    this->m_nbk.popup_enable();
+    
+    this->m_usersPanel.pack_start( this->m_nbk );
+}
 
 #endif

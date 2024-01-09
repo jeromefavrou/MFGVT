@@ -199,6 +199,10 @@ void Device::add2Container( File const & _in , VContainer & _out )
             tmp.ptr_lnk->version =  std::move(utilitys::regSearch( _out.get_reg_version() , tmp.ptr_lnk->get_name()));
 
             tmp.ptr_lnk->update_dates();
+
+            // lien de lien genere une erreur
+            if( tmp.ptr_lnk->is_lnk())
+                tmp.add_error(Version::EF_LNK);
         }
     }
 

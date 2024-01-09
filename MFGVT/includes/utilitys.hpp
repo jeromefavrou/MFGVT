@@ -13,8 +13,6 @@
 #define __UTILITYS_HPP__
 
 
-
-
 #include <windows.h>
 #include <shobjidl.h>
 #include <tchar.h>
@@ -30,6 +28,7 @@
 #include <iostream>
 #include <regex>
 #include <functional>
+#include <thread>
 
 #include "../includes/file.hpp"
 

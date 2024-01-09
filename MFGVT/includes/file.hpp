@@ -55,8 +55,7 @@
             std::shared_ptr<std::vector<File>> m_ptr_lnk ;
     };
 
-
-    File::~File(void)
+File::~File(void)
     {
         this->m_dir = "";
         this->m_name = "";
@@ -221,5 +220,6 @@
 
         return {_str.substr(0 , idx) , _str.substr(idx+1 , _str.size())};
     }
+    
 
 #endif
