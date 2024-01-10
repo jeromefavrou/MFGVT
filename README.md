@@ -7,7 +7,7 @@ Pour WIndows installer MSYS2 https://www.msys2.org\n
 
 puis \n
 
-pour 32bit MSYS2 cmd a taper\n
+pour 32bit MSYS2 cmd a taper</Br>
 
 pacman -Syuu\n
 pacman -S mingw-w64-i686-toolchain\n
