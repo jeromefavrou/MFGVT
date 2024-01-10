@@ -23,6 +23,7 @@ pacman -Syuu</Br>
 i686-w64-mingw32-pkg-config --cflags --libs gtkmm-3.0 </Br>
 
 pour 64bit MSYS2 cmd a taper</Br>
+
 pacman -Syuu</Br>
 pacman -S mingw-w64-x86_64-toolchain</Br>
 pacman -S mingw-w64-x86_64-gtkmm3</Br>
