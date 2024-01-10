@@ -1,29 +1,29 @@
-# MFVGT
-Maintenance Files Versions Grouppers Tool
+# MFVGT\n
+Maintenance Files Versions Grouppers Tool\n
 
-pour compilation manuel
+pour compilation manuel\n
 
-Pour WIndows installer MSYS2 https://www.msys2.org
+Pour WIndows installer MSYS2 https://www.msys2.org\n
 
-puis 
+puis \n
 
-pour 32bit MSYS2 cmd a taper
+pour 32bit MSYS2 cmd a taper\n
 
-pacman -Syuu
-pacman -S mingw-w64-i686-toolchain
-pacman -S mingw-w64-i686-gtkmm3
-pacman -S mingw-w64-i686-pkg-config
-pacman -S mingw-w64-i686-crypto++
-pacman -S mingw-w64-i686-poppler
-pacman -Syuu
-i686-w64-mingw32-pkg-config --cflags --libs gtkmm-3.0 
+pacman -Syuu\n
+pacman -S mingw-w64-i686-toolchain\n
+pacman -S mingw-w64-i686-gtkmm3\n
+pacman -S mingw-w64-i686-pkg-config\n
+pacman -S mingw-w64-i686-crypto++\n
+pacman -S mingw-w64-i686-poppler\n
+pacman -Syuu\n
+i686-w64-mingw32-pkg-config --cflags --libs gtkmm-3.0 \n
 
-pour 64bit MSYS2 cmd a taper
-pacman -Syuu
-pacman -S mingw-w64-x86_64-toolchain
-pacman -S mingw-w64-x86_64-gtkmm3
-pacman -S mingw-w64-x86_64-pkg-config
-pacman -S mingw-w64-x86_64-crypto++
-pacman -S mingw-w64-x86_64-poppler
-pacman -Syuu
-x86_64-w64-mingw32-pkg-config --cflags --libs gtkmm-3.0 
+pour 64bit MSYS2 cmd a taper\n
+pacman -Syuu\n
+pacman -S mingw-w64-x86_64-toolchain\n
+pacman -S mingw-w64-x86_64-gtkmm3\n
+pacman -S mingw-w64-x86_64-pkg-config\n
+pacman -S mingw-w64-x86_64-crypto++\n
+pacman -S mingw-w64-x86_64-poppler\n
+pacman -Syuu\n
+x86_64-w64-mingw32-pkg-config --cflags --libs gtkmm-3.0 \n
