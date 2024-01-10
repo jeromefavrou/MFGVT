@@ -1,5 +1,7 @@
-# MFVGT\n
+# MFVGT
 Maintenance Files Versions Grouppers Tool</Br>
+
+Pour toute aide sur le fonctionnment graphique : https://github.com/jeromefavrou/MFVGT/blob/main/help.pdf</Br>
 
 pour compilation manuel</Br>
 
