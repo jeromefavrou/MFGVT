@@ -3,6 +3,8 @@ Maintenance Files Versions Grouppers Tool</Br>
 
 Pour toute aide sur le fonctionnment graphique : https://github.com/jeromefavrou/MFVGT/blob/main/help.pdf</Br>
 
+ppour toute installation par un installeur : https://github.com/jeromefavrou/MFVGT/releases
+
 pour compilation manuel</Br>
 
 Pour WIndows installer MSYS2 https://www.msys2.org</Br>
