@@ -1,17 +1,17 @@
 # MFVGT\n
-Maintenance Files Versions Grouppers Tool\n
+Maintenance Files Versions Grouppers Tool</Br>
 
-pour compilation manuel\n
+pour compilation manuel</Br>
 
-Pour WIndows installer MSYS2 https://www.msys2.org\n
+Pour WIndows installer MSYS2 https://www.msys2.org</Br>
 
-puis \n
+puis </Br>
 
 pour 32bit MSYS2 cmd a taper</Br>
 
-pacman -Syuu\n
-pacman -S mingw-w64-i686-toolchain\n
-pacman -S mingw-w64-i686-gtkmm3\n
+pacman -Syuu</Br>
+pacman -S mingw-w64-i686-toolchain</Br>
+pacman -S mingw-w64-i686-gtkmm3</Br>
 pacman -S mingw-w64-i686-pkg-config\n
 pacman -S mingw-w64-i686-crypto++\n
 pacman -S mingw-w64-i686-poppler\n
