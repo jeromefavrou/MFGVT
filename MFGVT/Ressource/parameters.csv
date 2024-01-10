@@ -1,4 +1,4 @@
-WORK_DIR=C:\Users\Rigel85\Desktop\C_test
+WORK_DIR=..\
 authExt[1-meca]=pdf;dft;dxf;lnk
 authExt[2-elec]=pdf;xrel;lnk
 
