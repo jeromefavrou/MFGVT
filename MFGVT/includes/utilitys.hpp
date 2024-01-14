@@ -1,10 +1,33 @@
 /*
-                    GNU GENERAL PUBLIC LICENSE
-                       Version 3, 29 June 2007
+BSD 3-Clause License
 
- Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>
- Everyone is permitted to copy and distribute verbatim copies
- of this license document, but changing it is not allowed.
+Copyright (c) 2024, SYSJF
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its
+   contributors may be used to endorse or promote products derived from
+   this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 
@@ -101,10 +124,11 @@ namespace utilitys
     static std::string get_createDate(std::string const & _file)
     {
         // Obtenir le handle du fichier
-        HANDLE hFile = CreateFile(_file.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+        HANDLE hFile = CreateFileW( stringToWstring(_file).c_str() , GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+        
 
         if (hFile == INVALID_HANDLE_VALUE) 
-            throw std::ios_base::failure("create date of " + _file + "cannot be read");
+            throw std::ios_base::failure("create date of " + _file + " cannot be read");
         
 
         // Obtenir les informations sur le fichier, y compris la date de création
@@ -260,18 +284,28 @@ namespace utilitys
     /// @brief liste tout les fichier d'un répertoir mais de maniere recursive
     /// @param chemin //Chemin vers du repertoir cible 
     /// @param fichiers //list a traité
-    static void listerFichiers(const std::filesystem::path& chemin, std::vector<File>& fichiers)
+    static void listerFichiers(const std::filesystem::path& chemin, std::vector<File>& fichiers , std::string const & _auth_ext = "")
     {
 
             for (const auto& entry : std::filesystem::directory_iterator(chemin))
             {
                 // si repertoir , Appel récursif pour traiter les sous-répertoires
                 if (std::filesystem::is_directory(entry.status()))
-                    listerFichiers(entry.path(), fichiers);
+                    listerFichiers(entry.path(), fichiers , _auth_ext);
 
                 // si fichier  verification supplementaire
                 else if (std::filesystem::is_regular_file(entry.status()))
                 {
+
+                    //regarde si l'extension est authorisé 
+                    std::string tmp_ext = entry.path().extension().string();
+
+                    //supression du point
+                    if(tmp_ext.size() > 0)
+                        tmp_ext.erase(tmp_ext.begin());
+                    
+                    if( _auth_ext.find( tmp_ext ) == std::string::npos  && _auth_ext.size() > 0)
+                        return ;
 
                     //on regarde si il ya un lien si oui regarde si 
                     auto lnk = get_targetOfLnk(chemin.string() + "\\"+ entry.path().filename().string());
@@ -279,7 +313,7 @@ namespace utilitys
                     fichiers.emplace_back(chemin.string() + "\\"+ entry.path().filename().string());
 
                     if(lnk.size() > 0 && std::filesystem::is_directory( std::filesystem::status(lnk) ))
-                        listerFichiers( lnk , *fichiers.back().get_lnk() );
+                        listerFichiers( lnk , *fichiers.back().get_lnk() , _auth_ext);
                     else if(lnk.size() > 0)
                         fichiers.back().get_lnk()->push_back(lnk);
                 }
@@ -370,13 +404,18 @@ namespace utilitys
     {
         if( _reg.size() == 0 || _str.size() == 0)
             return "";
-        
-        std::regex pattern(_reg ,  std::regex_constants::ECMAScript | std::regex_constants::icase);
 
-        std::smatch match;
-        if (std::regex_search(_str, match, pattern)) 
-            return match.str();
-        
+        try
+        {
+           std::regex pattern(_reg ,  std::regex_constants::ECMAScript | std::regex_constants::icase); 
+           std::smatch match;
+            if (std::regex_search(_str, match, pattern)) 
+                return match.str();
+        }
+        catch(std::exception const & _e)
+        {
+            std::cerr << _e.what() <<std::endl;
+        }
 
         return "";
     }
@@ -428,14 +467,6 @@ namespace utilitys
 
         return s1 == s2;
     }
-
-    /// @brief ouvre une page web
-    /// @param url 
-    static void openWebPage(const std::string& url) 
-    {
-        ShellExecute(NULL, "open", url.c_str(), NULL, NULL, SW_SHOWNORMAL);
-    }
-
 
     class MainPathSharedTemplate
     {

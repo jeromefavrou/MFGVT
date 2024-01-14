@@ -1,10 +1,33 @@
 /*
-                    GNU GENERAL PUBLIC LICENSE
-                       Version 3, 29 June 2007
+BSD 3-Clause License
 
- Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>
- Everyone is permitted to copy and distribute verbatim copies
- of this license document, but changing it is not allowed.
+Copyright (c) 2024, SYSJF
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its
+   contributors may be used to endorse or promote products derived from
+   this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #ifndef __GTKMMCOMPONENT_HPP__
@@ -157,7 +180,7 @@ class PdfShower : public TemplateGui , public Gtk::ScrolledWindow
 {
     public:
     PdfShower(void );
-    void read_pdf( const std::string & _file );
+    void read_pdf( const std::string & _file , unsigned int _pageLimite = 10);
     void clear(void);
 
 
@@ -173,15 +196,17 @@ class PdfShower : public TemplateGui , public Gtk::ScrolledWindow
 /// @brief initialisation de la fenetre de rendu
 PdfShower::PdfShower(void ):TemplateGui(),Gtk::ScrolledWindow()
 {
-    this->set_policy(Gtk::POLICY_NEVER, Gtk::POLICY_AUTOMATIC);
+    this->set_policy(Gtk::POLICY_AUTOMATIC, Gtk::POLICY_AUTOMATIC);
     this->add(this->m_bx);
 
     this->m_current_file ="";
+
+    this->set_max_content_width(500);
 }
 
 /// @brief lecture et affichage d'un pdf
 /// @param _file chemin du ficheir pdf
-void PdfShower::read_pdf( const std::string & _file )
+void PdfShower::read_pdf( const std::string & _file , unsigned int _pageLimite )
 {
 
     if( this->m_current_file == _file)
@@ -197,28 +222,29 @@ void PdfShower::read_pdf( const std::string & _file )
     //verification de la validité du poiteur
     if( !pdf_document )
         throw LogicExceptionDialog( _file + " cannot be opened");
+        
 
 
     //lecture des différente page 
-    for(auto i = 0 ; i < (pdf_document->pages() <=10 ? pdf_document->pages() : 10 ); i++)
+    for(auto i = 0u ; i < ( static_cast<unsigned int>(pdf_document->pages()) <=_pageLimite ? static_cast<unsigned int>(pdf_document->pages()) : _pageLimite ); i++)
     {
         poppler::page * pdf_page = pdf_document->create_page(i);
 
         if(!pdf_page)
            throw LogicExceptionDialog( _file + " cannot be read page");
-        
 
+    
         this->m_vec_pdfImage.push_back(poppler::page_renderer().render_page(pdf_page));
 
+
         //transformation des donné brut en donné explatable gtkmm
-        Glib::RefPtr<Gdk::Pixbuf> pixbuf = Gdk::Pixbuf::create_from_data( (guint8*)this->m_vec_pdfImage.back().data(), Gdk::COLORSPACE_RGB, true, 8, this->m_vec_pdfImage.back().width(), this->m_vec_pdfImage.back().height(), this->m_vec_pdfImage.back().bytes_per_row() );
+        Glib::RefPtr<Gdk::Pixbuf> pixbuf = Gdk::Pixbuf::create_from_data( (guint8*)this->m_vec_pdfImage.back().data(), Gdk::COLORSPACE_RGB, true, 8, this->m_vec_pdfImage.back().width(), this->m_vec_pdfImage.back().height() , this->m_vec_pdfImage.back().bytes_per_row() );
 
         //mis en memoir de la page pdf sous formt d'image
         this->m_vec_images.emplace_back(pixbuf);
         this->m_vec_images.back().show();
         
         this->m_bx.pack_start( this->m_vec_images.back() );
-
     }
 
 
@@ -546,7 +572,7 @@ void VersionShower::on_clic(GrpVersion _cpy)
     //on ajoute les extension existante 
     this->m_ext_sel.remove_all();
 
-
+    bool pdfFound = false;
     for( const auto & vers : _cpy)
     {
         auto tmpvers = vers.is_lnk() ? vers.ptr_lnk.get() : &vers;
@@ -559,6 +585,8 @@ void VersionShower::on_clic(GrpVersion _cpy)
             {
                 if(str == tmpvers->get_ext()  )
                 {
+                    if( tmpvers->get_ext() == "pdf"  )
+                        pdfFound = true;
                     found = true ;
                     break;
                 }
@@ -577,7 +605,10 @@ void VersionShower::on_clic(GrpVersion _cpy)
     
     if(tmp.size() > 0)
     {
-         this->m_ext_sel.set_active_text(tmp.front());
+        if(pdfFound)
+            this->m_ext_sel.set_active_text("pdf");
+        else
+            this->m_ext_sel.set_active_text(tmp.front());
          tmp.clear();
     }
    
@@ -1013,7 +1044,26 @@ void Prompt::addCssProvider(Glib::RefPtr<Gtk::CssProvider> _cssProvider)
 /// @brief fonction a executeru au signal d'aide , ouvre une page web
 void Prompt::helpSignal(void)
 {
-    utilitys::openWebPage("https://github.com/jeromefavrou/MFVGT/wiki");
+    try
+    {
+        #ifdef __MFVGT_VERSION_RELEASE
+            this->atPdfShower()->read_pdf(".\\help.pdf" , 50);
+        #else
+            this->atPdfShower()->read_pdf( __MFVGT_PROJECT_DIR + "\\help.pdf" , 50);
+        #endif
+    }
+    catch( LogicExceptionDialog const & _e)
+    {
+        _e.show();
+    }
+    catch(std::exception const & _e)
+    {
+        LogicExceptionDialog const _er( _e.what() );
+
+        _er.show();
+    }
+    
+    
 }
 
 /// @brief met a jour les information des version des groupe des materiel , fonction threadable
@@ -1193,7 +1243,7 @@ void Prompt::enterSignal(void)
     if(current_entry.size() ==0)
         return;
 
-    //crée la liste de recherche et la aliste a ignoré
+    //crée la liste de recherche et la liste a ignoré
     auto res = utilitys::sep_string<';'>( current_entry );
     lsAtSearch.push_back( std::move(std::get<0>(res)) );
 
@@ -1213,9 +1263,23 @@ void Prompt::enterSignal(void)
     std::vector< File > files ;
     // Utiliser la fonction récursive pour lister l'enseble des fichiers du repertoir
 
+    
+
     try
     {
-        utilitys::listerFichiers(*this->atMainPath(), files);
+
+        std::string authExt = "";
+        for(auto const & cont : this->atDevice()->front().get_containers())
+        {
+            authExt += cont.get_authExt();
+            if(authExt.size() > 0)
+            {
+                if( authExt.back() != ';')
+                    authExt+=';';
+            }
+        }
+
+        utilitys::listerFichiers(*this->atMainPath(), files , authExt);
     }
     catch(std::exception const & _e)
     {
@@ -1380,7 +1444,12 @@ WindowMain::WindowMain(const std::string & _absPath) : Gtk::Window() , TemplateG
     this->m_parent = this;
     //this->addMainPath( std::shared_ptr< const std::string >(new const std::string(_mainPath)) );
 
-    auto && path = utilitys::readList(this->m_absPath + "\\ressourcePath.csv" , false);
+
+    #ifdef __MFVGT_VERSION_RELEASE
+            auto && path = utilitys::readList( ".\\ressourcePath.csv" , false);
+    #else
+            auto && path = utilitys::readList( __MFVGT_PROJECT_DIR + "\\ressourcePath.csv" , false);
+    #endif
 
     if( path.size() == 0 )
          throw std::logic_error("no ressourcePath found");
